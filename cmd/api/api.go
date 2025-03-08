@@ -7,10 +7,7 @@ import (
 
 	"github.com/gorilla/handlers" // Import the CORS package
 	"github.com/gorilla/mux"
-	"github.com/wael-boudissaa/marquinoBackend/services/categorie"
-	"github.com/wael-boudissaa/marquinoBackend/services/commande"
-	"github.com/wael-boudissaa/marquinoBackend/services/product"
-	"github.com/wael-boudissaa/marquinoBackend/services/user"
+	"github.com/wael-boudissaa/zencitiBackend/services/user"
 )
 
 type APISERVER struct {
@@ -24,23 +21,12 @@ func NewApiServer(addr string, db *sql.DB) *APISERVER {
 
 func (s *APISERVER) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	router := mux.NewRouter()
-	subrouter := router.PathPrefix("/").Subrouter()
+      subrouter := router.PathPrefix("/").Subrouter()
 
 	userStore := user.NewStore(s.db)
 	userHandler := user.NewHandler(userStore)
 	userHandler.RegisterRoutes(subrouter)
 
-	productStore := product.NewStore(s.db)
-	productHandler := product.NewHandler(productStore)
-	productHandler.RegisterRoutes(subrouter)
-
-	commandeStore := commande.NewStore(s.db)
-	commandeHandler := commande.NewHandler(commandeStore)
-	commandeHandler.RegisterRoutes(subrouter)
-
-	categorieStore := categorie.NewStore(s.db)
-	categorieHandler := categorie.NewHandler(categorieStore)
-	categorieHandler.RegisterRoutes(subrouter)
 	// Serve static files
 	router.PathPrefix("/").Handler(http.FileServer(http.Dir("static")))
 

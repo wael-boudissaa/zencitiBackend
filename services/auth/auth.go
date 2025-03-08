@@ -6,14 +6,11 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/wael-boudissaa/marquinoBackend/configs"
-	"github.com/wael-boudissaa/marquinoBackend/types"
+	"github.com/wael-boudissaa/zencitiBackend/configs"
 	"golang.org/x/crypto/bcrypt"
 )
 
 func ComparePasswords(password []byte, hashedPassword []byte) bool {
-	// fmt.Println(password)
-	// fmt.Println(hashedPassword)
 	err := bcrypt.CompareHashAndPassword(hashedPassword, []byte(password))
 	return err == nil
 }
@@ -24,10 +21,10 @@ func HashedPassword(password string) ([]byte, error) {
 
 var secretKey = []byte(configs.Env.TokenSecretWord)
 
-func CreateRefreshToken(user types.User) (string, error) {
+func CreateRefreshToken(id string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256,
 		jwt.MapClaims{
-			"id":  user.Id,
+			"id":  id,
 			"exp": time.Now().Add(time.Hour * 24 * 2).Unix(),
 		})
 	tokenString, err := token.SignedString(secretKey)

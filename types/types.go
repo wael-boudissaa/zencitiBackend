@@ -2,38 +2,42 @@ package types
 
 import "time"
 
+type UserLogin struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
 type UserStore interface {
-	GetUserByEmail(user string) (*User, error)
+	GetUserByEmail(email string) (*User, error)
 	GetUserById(user User) (*User, error)
-	CreateUser(user User, idUser string, token string, hashedPassword string) error
+	CreateUser(user RegisterUser, idUser string, token string, hashedPassword string) error
 }
 
-type CategorieStore interface {
-	GetCategories() (*[]Categorie, error)
-}
-type CommandeStore interface {
-	GetAllCommandes() (*[]Commande, error)
-	GetCommandeById(id string) (*Commande, error)
-	CreateCommande(idCommande, idCustomer string, price int) error
-	// UpdateCommande(commande Commande) error
-	// DeleteCommande(commande Commande) error
-	// GetCommandeByUser(idUser string) (*[]Commande, error)
-	InsertProductINCommande(product ProductBought, idCommande string) (*CommandeProduct, error)
-}
-
-type CommandeProduct struct {
-	IdCommande string `json:"idCommande"`
-	IdProduct  string `json:"idProduct"`
-}
-
-type Commande struct {
-	IdCommande string `json:"idCommande"`
-	IdCustomer string `json:"idCustomer"`
-}
-type CommandeCreate struct {
-	IdCustomer string `json:"idCustomer"`
-}
-
+// type CategorieStore interface {
+// 	GetCategories() (*[]Categorie, error)
+// }
+// type CommandeStore interface {
+// 	GetAllCommandes() (*[]Commande, error)
+// 	GetCommandeById(id string) (*Commande, error)
+// 	CreateCommande(idCommande, idCustomer string, price int) error
+// 	// UpdateCommande(commande Commande) error
+// 	// DeleteCommande(commande Commande) error
+// 	// GetCommandeByUser(idUser string) (*[]Commande, error)
+// 	InsertProductINCommande(product ProductBought, idCommande string) (*CommandeProduct, error)
+// }
+//
+// type CommandeProduct struct {
+// 	IdCommande string `json:"idCommande"`
+// 	IdProduct  string `json:"idProduct"`
+// }
+//
+// type Commande struct {
+// 	IdCommande string `json:"idCommande"`
+// 	IdCustomer string `json:"idCustomer"`
+// }
+// type CommandeCreate struct {
+// 	IdCustomer string `json:"idCustomer"`
+// }
+//
 type User struct {
 	Id           string `json:"idProfile"`
 	FirstName    string `json:"firstName"`
@@ -43,23 +47,20 @@ type User struct {
 	Address      string `json:"address"`
 	Phone        string `json:"phone"`
 	Password     string `json:"password"`
-	LastLogin    string `json:"lastLogin"`
-	CreatedAt    string `json:"createdAt"`
+	LastLogin    time.Time `json:"lastLogin"`
+	CreatedAt    time.Time `json:"createdAt"`
 	Refreshtoken string `json:"refreshToken"`
 }
-
-type UserLogin struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
+//
 
 type RegisterUser struct {
 	FirstName string `json:"firstName"`
 	LastName  string `json:"lastName"`
 	Email     string `json:"email"`
-	Address   string `json:"adress"`
-	Phone     string `json:"phone"`
+	Address   string `json:"address"`
+	Phone     string `json:"phoneNumber"`
 	Password  string `json:"password"`
+    Type     string `json:"type"`
 }
 
 type ProductStore interface {

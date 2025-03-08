@@ -3,11 +3,12 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"github.com/go-sql-driver/mysql"
-	"github.com/wael-boudissaa/marquinoBackend/cmd/api"
-	"github.com/wael-boudissaa/marquinoBackend/configs"
-	"github.com/wael-boudissaa/marquinoBackend/db"
 	"log"
+
+	"github.com/go-sql-driver/mysql"
+	"github.com/wael-boudissaa/zencitiBackend/cmd/api"
+	"github.com/wael-boudissaa/zencitiBackend/configs"
+	"github.com/wael-boudissaa/zencitiBackend/db"
 )
 
 func main() {

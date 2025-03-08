@@ -3,9 +3,10 @@ package user
 import (
 	"database/sql"
 	"fmt"
+	"time"
 
-	"github.com/wael-boudissaa/marquinoBackend/services/auth"
-	"github.com/wael-boudissaa/marquinoBackend/types"
+	// "github.com/wael-boudissaa/zencitiBackend/services/auth"
+	"github.com/wael-boudissaa/zencitiBackend/types"
 )
 
 type Store struct {
@@ -16,8 +17,8 @@ func NewStore(db *sql.DB) *Store {
 	return &Store{db: db}
 }
 
-func (s *Store) GetUserByEmail( email string) (*types.User, error) {
-	query := `SELECT idProfile, firstName, lastName, email, password, address, createdAt, type, lastLogin, refreshToken FROM profile WHERE email = ?`
+func (s *Store) GetUserByEmail(email string) (*types.User, error) {
+	query := `SELECT * FROM profile WHERE email = ?`
 	rows, err := s.db.Query(query, email)
 	if err != nil {
 		return nil, err
@@ -32,11 +33,12 @@ func (s *Store) GetUserByEmail( email string) (*types.User, error) {
 			&u.LastName,
 			&u.Email,
 			&u.Password,
-			&u.Address,
 			&u.CreatedAt,
-			&u.Type,
-			&u.LastLogin,
 			&u.Refreshtoken,
+			&u.Type,
+			&u.Address,
+			&u.LastLogin,
+			&u.Phone,
 		)
 		if err != nil {
 			return nil, err
@@ -64,23 +66,25 @@ func (s *Store) GetUserById(user types.User) (*types.User, error) {
 	return u, nil
 }
 
-func (s *Store) CreateUser(user types.User, idUser string, token string, hashedPassword string) error {
-	query := `INSERT INTO profile (idProfile, firstName, lastName, email, password, address, createdAt, lastLogin, refreshToken, type)
-			  VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?)`
+func (s *Store) CreateUser(user types.RegisterUser, idUser string, token string, hashedPassword string) error {
+	query := `INSERT INTO profile (idProfile, firstName, lastName, email, password, address,createdAt,lastLogin, refreshToken, type,phoneNumber)
+			  VALUES (?, ?, ?, ?, ?,?,?,?,?, ?,?)`
 
-	_, err := s.db.Exec(query, idUser, user.FirstName, user.LastName, user.Email, hashedPassword, user.Address, token, user.Type)
+	_, err := s.db.Exec(query, idUser, user.FirstName, user.LastName, user.Email, hashedPassword, user.Address, time.Now(), time.Now(), token, user.Type,user.Phone)
+
 	if err != nil {
 		return fmt.Errorf("error creating user: %v", err)
 	}
-	queryCustomer := `INSERT into customer(idCustomer, idProfile) values(?, ?)`
-	idCustomer, err := auth.CreateAnId()
-	if err != nil {
-		return fmt.Errorf("error creating user: %v", err)
-	}
-	_, err = s.db.Exec(queryCustomer, idCustomer, idUser)
-	if err != nil {
-		return fmt.Errorf("error creating user: %v", err)
-	}
+
+	// queryCustomer := `INSERT into customer(idCustomer, idProfile) values(?, ?)`
+	// idCustomer, err := auth.CreateAnId()
+	// if err != nil {
+	// 	return fmt.Errorf("error creating user: %v", err)
+	// }
+	// _, err = s.db.Exec(queryCustomer, idCustomer, idUser)
+	// if err != nil {
+	// 	return fmt.Errorf("error creating user: %v", err)
+	// }
 
 	return nil
 }

@@ -109,3 +109,5 @@ func scanRowsIntoUser(rows *sql.Rows) (*types.User, error) {
 	}
 	return user, nil
 }
+
+

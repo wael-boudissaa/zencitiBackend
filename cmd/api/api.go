@@ -16,16 +16,22 @@ type APISERVER struct {
 }
 
 func NewApiServer(addr string, db *sql.DB) *APISERVER {
+    user.NewAuth()
 	return &APISERVER{addr: addr, db: db}
 }
 
 func (s *APISERVER) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	router := mux.NewRouter()
       subrouter := router.PathPrefix("/").Subrouter()
+      // !NOTE : SUBROUTER FOR THE USER 
 
 	userStore := user.NewStore(s.db)
 	userHandler := user.NewHandler(userStore)
 	userHandler.RegisterRoutes(subrouter)
+
+
+
+    // !NOTE : SUBROUTER FOR THE COMMANDES  
 
 	// Serve static files
 	router.PathPrefix("/").Handler(http.FileServer(http.Dir("static")))

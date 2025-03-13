@@ -1,23 +1,75 @@
 package user
 
 import (
-	"context"
 	"fmt"
 	"net/http"
+	// "os"
+
 	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
+	"github.com/joho/godotenv"
+	"github.com/markbates/goth"
+	"github.com/markbates/goth/gothic"
+	"github.com/markbates/goth/providers/google"
+	"github.com/wael-boudissaa/zencitiBackend/configs"
 	"github.com/wael-boudissaa/zencitiBackend/services/auth"
 	"github.com/wael-boudissaa/zencitiBackend/types"
 	"github.com/wael-boudissaa/zencitiBackend/utils"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 )
 
-var googleOAuthConfig = &oauth2.Config{
-	ClientID:     "YOUR_CLIENT_ID",
-	ClientSecret: "YOUR_CLIENT_SECRET",
-	RedirectURL:  "http://localhost:8080/auth/google/callback",
-	Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"},
-	Endpoint:     google.Endpoint,
+const (
+	key    = "key"
+	MaxAge = 86400 * 30
+	isProd = false
+)
+
+func NewAuth() {
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Println("Error loading .env file")
+	}
+
+	googleClientId := configs.Env.GoogleClientId
+	googleClientSecret := configs.Env.GoogleClientSecret
+
+	fmt.Println("Google Client ID:", googleClientId)     // Debugging
+	fmt.Println("Google Client ID:", googleClientSecret) // Debugging
+
+	store := sessions.NewCookieStore([]byte(key))
+	store.MaxAge(MaxAge)
+	store.Options.Path = "/"
+	store.Options.HttpOnly = true
+	store.Options.Secure = isProd
+
+	gothic.Store = store
+
+	goth.UseProviders(
+		google.New(googleClientId, googleClientSecret,
+			"http://localhost:8080/auth/google/callback"),
+	)
+
+	fmt.Println("Google Provider Registered")
+}
+func beginAuth(w http.ResponseWriter, r *http.Request) {
+	gothic.BeginAuthHandler(w, r)
+}
+
+// Step 2: Handle Google Callback
+func completeAuth(w http.ResponseWriter, r *http.Request) {
+	user, err := gothic.CompleteUserAuth(w, r)
+	if err != nil {
+		http.Error(w, "Authentication failed", http.StatusUnauthorized)
+		return
+	}
+
+	// You can now use user.Email, user.Name, etc.
+	fmt.Fprintf(w, "Welcome, %s! Your email is %s.", user.Name, user.Email)
+}
+
+// Step 3: Logout Handler
+func logout(w http.ResponseWriter, r *http.Request) {
+	gothic.Logout(w, r)
+	fmt.Fprintln(w, "Logged out successfully!")
 }
 
 type Handler struct {
@@ -31,6 +83,9 @@ func NewHandler(store types.UserStore) *Handler {
 func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/login", h.loginUser).Methods("POST")
 	router.HandleFunc("/signup", h.signUpUser).Methods("POST")
+	router.HandleFunc("/auth/{provider}", beginAuth).Methods("GET")
+	router.HandleFunc("/auth/{provider}/callback", completeAuth).Methods("GET")
+	router.HandleFunc("/auth/logout", logout).Methods("GET")
 	//admin
 }
 
@@ -100,37 +155,4 @@ func (h *Handler) signUpUser(w http.ResponseWriter, r *http.Request) {
 
 	utils.WriteJson(w, http.StatusOK, map[string]string{"token": token, "message": "User created successfully"})
 
-}
-func googleLoginHandler(w http.ResponseWriter, r *http.Request) {
-	url := googleOAuthConfig.AuthCodeURL("randomstate")
-	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
-}
-
-// Step 2: Handle Google Callback
-func googleCallbackHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
-
-	code := r.URL.Query().Get("code")
-	if code == "" {
-		http.Error(w, "Code not found", http.StatusBadRequest)
-		return
-	}
-
-	token, err := googleOAuthConfig.Exchange(ctx, code)
-	if err != nil {
-		http.Error(w, "Token exchange failed", http.StatusInternalServerError)
-		return
-	}
-
-	client := googleOAuthConfig.Client(ctx, token)
-
-	// Fetch user info from Google API
-	resp, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo")
-	if err != nil {
-		http.Error(w, "Failed to get user info", http.StatusInternalServerError)
-		return
-	}
-	defer resp.Body.Close()
-
-	fmt.Fprintln(w, "User info retrieved successfully!")
 }

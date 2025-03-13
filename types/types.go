@@ -108,6 +108,8 @@ type Order struct {
     Status string `json:"status"`
     CreatedAt time.Time `json:"createdAt"`
 }
+
+
 // type CategorieStore interface {
 // 	GetCategories() (*[]Categorie, error)
 // }

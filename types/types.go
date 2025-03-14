@@ -14,7 +14,7 @@ type UserStore interface {
 type ActiviteStore interface { 
     GetActivite() (*[]Activite, error)
     GetActiviteById(id string) (*Activite, error)
-    GetActiviteTypes() (*[]Activite, error)
+    GetActiviteTypes( typeActivite string) (*[]Activite, error)
 }
 type RestaurantStore interface {
     GetRestaurant() (*[]Restaurant, error)
@@ -76,6 +76,7 @@ type Menu struct {
     IdMenu string `json:"idMenu"`
     IdRestaurant string `json:"idRestaurant"`
     Name string `json:"name"`
+    Active bool `json:"active"`
     CreatedAt time.Time `json:"createdAt"`
 
 }

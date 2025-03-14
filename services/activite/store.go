@@ -83,3 +83,4 @@ func (s *Store) GetActiviteTypes() (*[]types.ActivitetType, error) {
     return &activite, nil
 }
 
+

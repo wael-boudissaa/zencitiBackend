@@ -19,6 +19,19 @@ type ActiviteStore interface {
 type RestaurantStore interface {
     GetRestaurant() (*[]Restaurant, error)
     GetRestaurantById(id string) (*Restaurant, error)
+    GetRestaurantWorker() (*[]RestaurantWorker, error)
+    GetRestaurantWorkerById(id string) (*RestaurantWorker, error)
+    GetRestaurantWorkerFeedBack() (*[]RestaurantWorkerFeedBack, error)
+    GetRestaurantWorkerFeedBackById(id string) (*RestaurantWorkerFeedBack, error)
+    GetReservation() (*[]Reservation, error)
+    GetReservationById(id string) (*Reservation, error)
+    GetOrder() (*[]Order, error)
+    GetOrderById(id string) (*Order, error)
+    GetMenu() (*[]Menu, error)
+    GetMenuById(id string) (*Menu, error)
+    GetFood() (*[]Food, error)
+    GetFoodById(id string) (*Food, error)
+
 }
 
 type Activite struct {

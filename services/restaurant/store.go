@@ -262,32 +262,32 @@ func (s *store) getOrderByClient(idClient string) (*[]types.Order, error) {
 	return &orders, nil
 }
 
-func (s *store) getFoodByOrder(idOrder string) (*[]types.Food, error) {
-	query := `select * from orderFood join food join categoryFood where idOrder = ?`
+func(s *store) getFoodByOrder(idOrder string) (*[]types.Food , error) { 
+    query := `select * from orderFood join food join categoryFood where idOrder = ?`
 
-	rows, err := s.db.Query(query, idOrder)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var foods []types.Food
-	for rows.Next() {
-		var food types.Food
-		err = rows.Scan(
-			&food.IdFood,
-			&food.IdCategory,
-			&food.IdMenu,
-			&food.Name,
-			&food.Description,
-			&food.Image,
-			&food.Price,
-			&food.Status,
-		)
+    rows, err := s.db.Query(query, idOrder)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+    var foods []types.Food
+    for rows.Next() {
+        var food types.Food
+        err = rows.Scan(
+            &food.IdFood,
+            &food.IdCategory,
+            &food.IdMenu,
+            &food.Name,
+            &food.Description,
+            &food.Image,
+            &food.Price,
+            &food.Status,
+        )
 
-		if err != nil {
-			return nil, err
-		}
-		foods = append(foods, food)
-	}
-	return &foods, nil
+        if err != nil {
+            return nil, err
+        }
+        foods = append(foods, food)
+    }
+    return &foods, nil
 }

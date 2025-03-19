@@ -31,6 +31,8 @@ type RestaurantStore interface {
     GetMenuById(id string) (*Menu, error)
     GetFood() (*[]Food, error)
     GetFoodById(id string) (*Food, error)
+    GetWorkerFeedBack() (*[]RestaurantWorkerFeedBack, error)
+    GetWorkerRestaurantFeedBackBy(id string) (*RestaurantWorkerFeedBack, error)
 
 }
 

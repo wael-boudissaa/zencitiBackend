@@ -18,6 +18,8 @@ func NewHandler(s types.ActiviteStore) *Handler {
 
 func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/activite", h.GetActivite).Methods("GET")
+    r.HandleFunc("/activite/{id}", h.GetActiviteById).Methods("GET")
+    r.HandleFunc("/activite/type/{type}", h.GetActiviteByType).Methods("GET")
 }
 
 func (h *Handler) GetActivite(w http.ResponseWriter, r *http.Request) {

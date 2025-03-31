@@ -15,7 +15,9 @@ type ActiviteStore interface {
     GetActivite() (*[]Activite, error)
     GetActiviteById(id string) (*Activite, error)
     GetActiviteTypes( typeActivite string) (*[]Activite, error)
+    GetActiviteType() (*[]ActivitetType, error)
 }
+
 type RestaurantStore interface {
     GetRestaurant() (*[]Restaurant, error)
     GetRestaurantById(id string) (*Restaurant, error)

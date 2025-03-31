@@ -84,3 +84,30 @@ func (s *Store) GetActiviteTypes() (*[]types.ActivitetType, error) {
 }
 
 
+
+func (s *Store) GetActivityByType(id int) (*[]types.Activite, error) {
+    query := `SELECT * FROM activite WHERE idActiviteType = ?`
+    rows, err := s.db.Query(query, id)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close() 
+    var activite []types.Activite
+
+    for rows.Next() {
+        var act types.Activite
+        err = rows.Scan(
+            &act.IdActivite,
+            &act.NameActivite,
+            &act.Description,
+        )
+        if err != nil {
+            return nil, err
+        }
+        activite = append(activite, act)
+    }
+    if err:=rows.Err(); err!=nil {
+        return nil, err
+    }
+    return &activite, nil
+}

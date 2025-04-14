@@ -2,41 +2,6 @@ package types
 
 import "time"
 
-type UserLogin struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-type UserStore interface {
-	GetUserByEmail(email string) (*User, error)
-	GetUserById(user User) (*User, error)
-	CreateUser(user RegisterUser, idUser string, token string, hashedPassword string) error
-}
-type ActiviteStore interface { 
-    GetActivite() (*[]Activite, error)
-    GetActiviteById(id string) (*Activite, error)
-    GetActiviteTypes( typeActivite string) (*[]Activite, error)
-    GetActiviteType() (*[]ActivitetType, error)
-}
-
-type RestaurantStore interface {
-    GetRestaurant() (*[]Restaurant, error)
-    GetRestaurantById(id string) (*Restaurant, error)
-    GetRestaurantWorker() (*[]RestaurantWorker, error)
-    GetRestaurantWorkerById(id string) (*RestaurantWorker, error)
-    GetRestaurantWorkerFeedBack() (*[]RestaurantWorkerFeedBack, error)
-    GetRestaurantWorkerFeedBackById(id string) (*RestaurantWorkerFeedBack, error)
-    GetReservation() (*[]Reservation, error)
-    GetReservationById(id string) (*Reservation, error)
-    GetOrder() (*[]Order, error)
-    GetOrderById(id string) (*Order, error)
-    GetMenu() (*[]Menu, error)
-    GetMenuById(id string) (*Menu, error)
-    GetFood() (*[]Food, error)
-    GetFoodById(id string) (*Food, error)
-    GetWorkerFeedBack() (*[]RestaurantWorkerFeedBack, error)
-    GetWorkerRestaurantFeedBackBy(id string) (*RestaurantWorkerFeedBack, error)
-
-}
 
 type Activite struct {
     IdActivite string `json:"idActivite"`
@@ -107,7 +72,9 @@ type Food struct {
     Price float64 `json:"price"`
     Status string `json:"status"`
 }
+
 //!WARNING:: THERE SHOULD BE A GENEARL THING ON THE RESERVATION FOR THE RESTAURANT AND THE ACITIVITE AND ALSO FOR THE RATING AND FEEDBACK
+
 type Reservation struct {
     IdReservation string `json:"idReservation"`
     IdClient string `json:"idClient"`
@@ -128,32 +95,6 @@ type Order struct {
 }
 
 
-// type CategorieStore interface {
-// 	GetCategories() (*[]Categorie, error)
-// }
-// type CommandeStore interface {
-// 	GetAllCommandes() (*[]Commande, error)
-// 	GetCommandeById(id string) (*Commande, error)
-// 	CreateCommande(idCommande, idCustomer string, price int) error
-// 	// UpdateCommande(commande Commande) error
-// 	// DeleteCommande(commande Commande) error
-// 	// GetCommandeByUser(idUser string) (*[]Commande, error)
-// 	InsertProductINCommande(product ProductBought, idCommande string) (*CommandeProduct, error)
-// }
-//
-// type CommandeProduct struct {
-// 	IdCommande string `json:"idCommande"`
-// 	IdProduct  string `json:"idProduct"`
-// }
-//
-// type Commande struct {
-// 	IdCommande string `json:"idCommande"`
-// 	IdCustomer string `json:"idCustomer"`
-// }
-// type CommandeCreate struct {
-// 	IdCustomer string `json:"idCustomer"`
-// }
-//
 type User struct {
 	Id           string `json:"idProfile"`
 	FirstName    string `json:"firstName"`
@@ -177,15 +118,6 @@ type RegisterUser struct {
 	Phone     string `json:"phoneNumber"`
 	Password  string `json:"password"`
     Type     string `json:"type"`
-}
-
-type ProductStore interface {
-	GetProductById(id string) (*Product, error)
-	GetAllProducts() (*[]Product, error)
-	CreateProduct(product ProductCreate, idProduct string) error
-	// UpdateProduct(product Product) error
-	// DeleteProduct(product Product) error
-	GetProductByCategorie(idCategorie string) (*[]Product, error)
 }
 
 type Product struct {
@@ -226,8 +158,4 @@ type FeedBack struct {
 	IDFeedBack string `json:"idFeedback"`
 	Comment    string `json:"comment"`
 	CreatedAt  string `json:"createdAt"`
-}
-type FeedBackStore interface {
-	GetAllFeedBack() (*FeedBack, error)
-	CreateFeedBack(idFeedBack, idCustomer, comment string) error
 }

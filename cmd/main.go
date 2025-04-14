@@ -9,6 +9,7 @@ import (
 	"github.com/wael-boudissaa/zencitiBackend/cmd/api"
 	"github.com/wael-boudissaa/zencitiBackend/configs"
 	"github.com/wael-boudissaa/zencitiBackend/db"
+	// "github.com/wael-boudissaa/zencitiBackend/utils"
 )
 
 func main() {
@@ -28,7 +29,10 @@ func main() {
 	initStorage(db)
 
 	server := api.NewApiServer(fmt.Sprintf(":%s", configs.Env.Port), db)
-
+	// cld, ctx := utils.Credentials()
+	// utils.UploadImage(cld, ctx)
+	// utils.GetAssetInfo(cld, ctx)
+	// utils.TransformImage(cld, ctx)
 	if err := server.Run(); err != nil {
 		fmt.Println(err)
 	} else {

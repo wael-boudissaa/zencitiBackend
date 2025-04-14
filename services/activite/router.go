@@ -20,7 +20,9 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/activite", h.GetActivite).Methods("GET")
     r.HandleFunc("/activite/{id}", h.GetActiviteById).Methods("GET")
     r.HandleFunc("/activite/type/{type}", h.GetActiviteByType).Methods("GET")
+    r.HandleFunc("/activite/type", h.GetActiviteTypes).Methods("GET")
 }
+
 
 func (h *Handler) GetActivite(w http.ResponseWriter, r *http.Request) {
 	activite, err := h.store.GetActivite()
@@ -51,3 +53,12 @@ func (h *Handler) GetActiviteByType(w http.ResponseWriter, r *http.Request) {
 	}
 	utils.WriteJson(w, http.StatusOK, activite)
 }
+func (h *Handler) GetActiviteTypes(w http.ResponseWriter, r *http.Request) {
+    activite, err := h.store.GetActiviteTypes()
+    if err != nil {
+        utils.WriteError(w, http.StatusBadRequest, err)
+        return
+    }
+    utils.WriteJson(w, http.StatusOK, activite)
+}
+

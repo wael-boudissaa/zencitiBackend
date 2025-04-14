@@ -8,10 +8,10 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"github.com/joho/godotenv"
-	"github.com/markbates/goth"
+	// "github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
-	"github.com/markbates/goth/providers/google"
-	"github.com/wael-boudissaa/zencitiBackend/configs"
+	// "github.com/markbates/goth/providers/google"
+	// "github.com/wael-boudissaa/zencitiBackend/configs"
 	"github.com/wael-boudissaa/zencitiBackend/services/auth"
 	"github.com/wael-boudissaa/zencitiBackend/types"
 	"github.com/wael-boudissaa/zencitiBackend/utils"
@@ -29,11 +29,11 @@ func NewAuth() {
 		fmt.Println("Error loading .env file")
 	}
 
-	googleClientId := configs.Env.GoogleClientId
-	googleClientSecret := configs.Env.GoogleClientSecret
+	// googleClientId := configs.Env.GoogleClientId
+	// googleClientSecret := configs.Env.GoogleClientSecret
 
-	fmt.Println("Google Client ID:", googleClientId)     // Debugging
-	fmt.Println("Google Client ID:", googleClientSecret) // Debugging
+	// fmt.Println("Google Client ID:", googleClientId)     // Debugging
+	// fmt.Println("Google Client ID:", googleClientSecret) // Debugging
 
 	store := sessions.NewCookieStore([]byte(key))
 	store.MaxAge(MaxAge)
@@ -43,10 +43,10 @@ func NewAuth() {
 
 	gothic.Store = store
 
-	goth.UseProviders(
-		google.New(googleClientId, googleClientSecret,
-			"http://localhost:8080/auth/google/callback"),
-	)
+	// goth.UseProviders(
+	// 	google.New(googleClientId, googleClientSecret,
+	// 		"http://localhost:8080/auth/google/callback"),
+	// )
 
 	fmt.Println("Google Provider Registered")
 }

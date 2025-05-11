@@ -3,15 +3,19 @@ package types
 import "time"
 
 
-type Activite struct {
-    IdActivite string `json:"idActivite"`
-    NameActivite string `json:"nameActivite"`
+type Activity struct {
+    IdActivity string `json:"idActivity"`
+    NameActivity string `json:"nameActivity"`
     Description string `json:"descriptionActivity"`
+    IdTypeActivity string `json:"idTypeActivity"`
+    ImageActivite string `json:"imageActivity"`
+    Popularity int `json:"popularity"`
 }
 
 type ActivitetType struct {
-    IdActiviteType string `json:"idActiviteType"`
-    NameActiviteType string `json:"nameActiviteType"`
+    IdActiviteType string `json:"idTypeActivity"`
+    NameActiviteType string `json:"nameTypeActivity"`
+    ImageActivity string `json:"imageActivity"`
 }
 type Restaurant struct {
     IdRestaurant string `json:"idRestaurant"`

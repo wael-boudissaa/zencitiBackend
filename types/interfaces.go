@@ -30,11 +30,11 @@ type UserStore interface {
 	CreateUser(user RegisterUser, idUser string, token string, hashedPassword string) error
 }
 type ActiviteStore interface {
-	GetActivite() (*[]Activite, error)
-	GetActiviteById(id string) (*Activite, error)
-	GetActiviteByTypes(typeActivite string) (*[]Activite, error)
-	GetActiviteType() (*[]ActivitetType, error)
-	GetPopularActivite() (*[]Activite, error)
+	// GetActivite() (*[]Activite, error)
+	// GetActiviteById(id string) (*Activite, error)
+	GetActivityByTypes(typeActivite string) (*[]Activity, error)
+	GetActiviteTypes() (*[]ActivitetType, error)
+	// GetPopularActivite() (*[]Activite, error)
 }
 type RestaurantStore interface {
 	GetRestaurant() (*[]Restaurant, error)

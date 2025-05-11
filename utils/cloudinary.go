@@ -24,9 +24,9 @@ func Credentials() (*cloudinary.Cloudinary, context.Context) {
 	return cld, ctx
 }
 
-func UploadImage(cld *cloudinary.Cloudinary, ctx context.Context) {
+func UploadImage(cld *cloudinary.Cloudinary, ctx context.Context,image string) {
 	// Upload an image from a remote URL
-	resp, err := cld.Upload.Upload(ctx, "https://cloudinary-devs.github.io/cld-docs-assets/assets/images/butterfly.jpeg",
+	resp, err := cld.Upload.Upload(ctx, image,
 		uploader.UploadParams{
 			PublicID:       "quickstart_butterfly",
 			UniqueFilename: api.Bool(false),

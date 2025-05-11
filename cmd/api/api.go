@@ -7,6 +7,7 @@ import (
 
 	"github.com/gorilla/handlers" // Import the CORS package
 	"github.com/gorilla/mux"
+	"github.com/wael-boudissaa/zencitiBackend/services/activite"
 	"github.com/wael-boudissaa/zencitiBackend/services/user"
 )
 
@@ -29,6 +30,9 @@ func (s *APISERVER) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	userHandler := user.NewHandler(userStore)
 	userHandler.RegisterRoutes(subrouter)
 
+    activiteStore := activite.NewStore(s.db)
+    activiteHandler := activite.NewHandler(activiteStore)
+    activiteHandler.RegisterRouter(subrouter)
 
 
     // !NOTE : SUBROUTER FOR THE COMMANDES  

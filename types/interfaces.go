@@ -4,11 +4,11 @@ type UserLogin struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
-type ProfileStore interface { 
-    GetProfileById(id string) (*User, error)
-    CreateProfile(profile User, id string) error
-    UpdateProfile(profile User) error
-    DeleteProfile(profile User) error
+type ProfileStore interface {
+	GetProfileById(id string) (*User, error)
+	CreateProfile(profile User, id string) error
+	UpdateProfile(profile User) error
+	DeleteProfile(profile User) error
 }
 
 type ProductStore interface {
@@ -31,11 +31,12 @@ type UserStore interface {
 }
 type ActiviteStore interface {
 	// GetActivite() (*[]Activite, error)
-	// GetActiviteById(id string) (*Activite, error)
+	GetActiviteById(id string) (*Activity, error)
 	GetActivityByTypes(typeActivite string) (*[]Activity, error)
 	GetActiviteTypes() (*[]ActivitetType, error)
-	// GetPopularActivite() (*[]Activite, error)
+	GetPopularActivities() (*[]Activity, error)
 }
+
 type RestaurantStore interface {
 	GetRestaurant() (*[]Restaurant, error)
 	GetRestaurantById(id string) (*Restaurant, error)

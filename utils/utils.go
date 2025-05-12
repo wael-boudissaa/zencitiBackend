@@ -32,7 +32,11 @@ func ParseJsonList(r *http.Request, v interface{}) error {
 func WriteJson(r http.ResponseWriter, status int, v any) error {
 	r.Header().Add("Content-Type", "application/json")
 	r.WriteHeader(status)
-	return json.NewEncoder(r).Encode(v)
+    response := map[string]interface{}{
+        "message": "Success",
+        "data":   v, 
+    }
+	return json.NewEncoder(r).Encode(response)
 }
 
 func WriteError(w http.ResponseWriter, status int, err error) {

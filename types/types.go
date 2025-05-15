@@ -95,7 +95,11 @@ type Reservation struct {
 	TimeReservation time.Time `json:"timeReservation"`
 	CreatedAt       time.Time `json:"createdAt"`
 }
+
+
+//!TODO: REMOVE THE IDRESTAURANT FROM THE ORDER
 type Order struct {
+
 	//!NOTE: I think in this place im gonna fetch all the information about the order the quantity and the food and all
 	IdOrder       string    `json:"idOrder"`
 	IdReservation string    `json:"idReservation"`

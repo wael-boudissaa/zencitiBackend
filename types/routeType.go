@@ -1,5 +1,6 @@
 package types
 
+import "time"
 
 //!TODO: PHONE NUMBER AS LONGIN INFORMATION
 type UserLogin struct {
@@ -18,6 +19,18 @@ type RegisterUser struct{
     Type string `json:"type"`
     Phone string `json:"phone_number"`
 
+
+}
+
+type ReservationCreation struct {
+    IdClient string `json:"idClient"`
+    IdRestaurant string `json:"idRestaurant"`
+    TimeSlot time.Time `json:"timeSlot"`
+}
+
+type OrderCreation struct{
+    IdReservation string `json:"idReservation"`
+    IdRestaurant string `json:"idRestaurant"`
 
 }
 

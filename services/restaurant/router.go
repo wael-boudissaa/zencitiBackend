@@ -21,6 +21,8 @@ func NewHandler(s types.RestaurantStore) *Handler {
 func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/restaurant", h.GetRestaurant).Methods("GET")
 	r.HandleFunc("/restaurant/{id}", h.GetRestaurantById).Methods("GET")
+	r.HandleFunc("/reservation", h.CreateReservation).Methods("POST")
+	r.HandleFunc("/order", h.CreateOrder).Methods("POST")
 	// r.HandleFunc("/restaurantWorker", h.GetRestaurantWorker).Methods("GET")
 	// r.HandleFunc("/restaurantWorker/{id}", h.GetRestaurantWorkerById).Methods("GET")
 	// r.HandleFunc("/restaurantWorker/{id}/feedback", h.GetRestaurantWorkerFeedback).Methods("GET")
@@ -47,6 +49,42 @@ func (h *Handler) GetRestaurantTables(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJson(w, http.StatusOK, tables)
 }
 
+func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
+	var order types.Order
+	if err := utils.ParseJson(r, &order); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+}
+
+func (h *Handler) CreateReservation(w http.ResponseWriter, r *http.Request) {
+	var reservation types.ReservationCreation
+	if err := utils.ParseJson(r, &reservation); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+	if reservation.IdClient == "" || reservation.IdRestaurant == "" {
+		utils.WriteError(w, http.StatusBadRequest, errors.New("idClient and idRestaurant are required"))
+		return
+	}
+	if reservation.TimeSlot.IsZero() {
+		utils.WriteError(w, http.StatusBadRequest, errors.New("timeSlot is required"))
+		return
+	}
+	idReservation, err := utils.CreateAnId()
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = h.store.CreateReservation(idReservation, reservation)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusCreated, reservation)
+}
+
 func (h *Handler) GetRestaurant(w http.ResponseWriter, r *http.Request) {
 	restaurant, err := h.store.GetRestaurant()
 	if err != nil {
@@ -55,7 +93,7 @@ func (h *Handler) GetRestaurant(w http.ResponseWriter, r *http.Request) {
 	}
 	utils.WriteJson(w, http.StatusOK, restaurant)
 }
-//
+
 func (h *Handler) GetRestaurantById(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	restaurant, err := h.store.GetRestaurantById(id)

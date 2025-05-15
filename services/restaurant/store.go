@@ -2,6 +2,7 @@ package restaurant
 
 import (
 	"database/sql"
+	"time"
 	// "log"
 
 	"github.com/wael-boudissaa/zencitiBackend/types"
@@ -16,6 +17,15 @@ func NewStore(db *sql.DB) *store {
 }
 
 // !NOTE: GET all restaurant
+
+func (s *store) CreateReservation(idReservation string , reservation types.ReservationCreation) error {
+    query := `INSERT INTO reservation (idReservation, idClient, idRestaurant, status, price, timeReservation, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)`
+    _, err := s.db.Exec(query,idReservation , reservation.IdClient, reservation.IdRestaurant, "pending", 0, reservation.TimeSlot, time.Now())
+    if err != nil {
+        return err
+    }
+    return nil
+}
 
 func (s *store) GetRestaurantTables(restaurantId string) (*[]types.RestaurantTable, error) {
 	query := `SELECT * FROM table_restaurant WHERE idRestaurant = ?`

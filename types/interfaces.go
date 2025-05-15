@@ -38,6 +38,7 @@ type RestaurantStore interface {
     GetRestaurantTables(restaurantId string) (*[]RestaurantTable, error)
 	GetRestaurant() (*[]Restaurant, error)
 	GetRestaurantById(id string) (*Restaurant, error)
+    CreateReservation(idReservation string ,reservation ReservationCreation) error
 	// GetRestaurantWorker() (*[]RestaurantWorker, error)
 	// GetRestaurantWorkerById(id string) (*RestaurantWorker, error)
 	// GetRestaurantWorkerFeedBack(id string) (*[]RestaurantWorkerFeedBack, error)

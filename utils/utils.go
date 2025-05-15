@@ -33,7 +33,7 @@ func WriteJson(r http.ResponseWriter, status int, v any) error {
 	r.Header().Add("Content-Type", "application/json")
 	r.WriteHeader(status)
     response := map[string]interface{}{
-        "message": "Success",
+        "message": status,
         "data":   v, 
     }
 	return json.NewEncoder(r).Encode(response)
@@ -42,3 +42,6 @@ func WriteJson(r http.ResponseWriter, status int, v any) error {
 func WriteError(w http.ResponseWriter, status int, err error) {
 	WriteJson(w, status, map[string]string{"error": err.Error()})
 }
+
+
+

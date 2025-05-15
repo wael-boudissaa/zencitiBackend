@@ -2,20 +2,45 @@ package user
 
 import (
 	"fmt"
+	// "log"
 	"net/http"
+
 	// "os"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"github.com/joho/godotenv"
+
 	// "github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 	// "github.com/markbates/goth/providers/google"
 	// "github.com/wael-boudissaa/zencitiBackend/configs"
-	"github.com/wael-boudissaa/zencitiBackend/services/auth"
 	"github.com/wael-boudissaa/zencitiBackend/types"
 	"github.com/wael-boudissaa/zencitiBackend/utils"
 )
+
+
+
+
+
+type Handler struct {
+	store types.UserStore
+}
+
+func NewHandler(store types.UserStore) *Handler {
+	return &Handler{store: store}
+}
+
+func (h *Handler) RegisterRoutes(router *mux.Router) {
+	router.HandleFunc("/login", h.loginUser).Methods("POST")
+	router.HandleFunc("/signup", h.signUpUser).Methods("POST")
+	router.HandleFunc("/auth/{provider}", beginAuth).Methods("GET")
+	router.HandleFunc("/auth/{provider}/callback", completeAuth).Methods("GET")
+	router.HandleFunc("/auth/logout", logout).Methods("GET")
+	//admin
+}
+
+
 
 const (
 	key    = "key"
@@ -72,87 +97,112 @@ func logout(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "Logged out successfully!")
 }
 
-type Handler struct {
-	store types.UserStore
-}
 
-func NewHandler(store types.UserStore) *Handler {
-	return &Handler{store: store}
-}
 
-func (h *Handler) RegisterRoutes(router *mux.Router) {
-	router.HandleFunc("/login", h.loginUser).Methods("POST")
-	router.HandleFunc("/signup", h.signUpUser).Methods("POST")
-	router.HandleFunc("/auth/{provider}", beginAuth).Methods("GET")
-	router.HandleFunc("/auth/{provider}/callback", completeAuth).Methods("GET")
-	router.HandleFunc("/auth/logout", logout).Methods("GET")
-	//admin
-}
+
+
+
+
+
+
+
 
 func (h *Handler) loginUser(w http.ResponseWriter, r *http.Request) {
 	var user types.UserLogin
+    if err := utils.ParseJson(r, &user); err != nil {
+        utils.WriteError(w, http.StatusBadRequest, err)
+        return
+    }
 
-	// fmt.Println("user called")
-
-	if err := utils.ParseJson(r, &user); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, err)
-		return
-	}
 
 	u, err := h.store.GetUserByEmail(user.Email)
-
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
+    fmt.Println("User", u)
 
-	if !auth.ComparePasswords([]byte(user.Password), []byte(u.Password)) {
+	//!NOTE: compare the password
+	if !utils.ComparePasswords([]byte(user.Password), []byte(u.Password)) {
 		utils.WriteError(w, http.StatusConflict, fmt.Errorf("Invalid Password"))
 		return
 	}
 
-	token, err := auth.CreateRefreshToken(*&u.Id)
-
+	//!NOTE: create a token
+	token, err := utils.CreateRefreshToken(u.Id, u.Type)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
-
 	utils.WriteJson(w, http.StatusOK, map[string]string{"token": token})
 }
 
+
+
+//
 func (h *Handler) signUpUser(w http.ResponseWriter, r *http.Request) {
 	var user types.RegisterUser
 
 	if err := utils.ParseJson(r, &user); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 	}
-	//!NOTE: CREATE AND ID
-	idUser, err := auth.CreateAnId()
+	//!NOTE: Create an id
+	idUser, err := utils.CreateAnId()
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	//!NOTE: CREATE REFRESH TOKEN
-	token, err := auth.CreateRefreshToken(idUser)
+	//!NOTE: Create refresht token
+
+	token, err := utils.CreateRefreshToken(idUser, user.Role)
+	// utils.MailSend()
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	//!NOTE: HASH PASSWORD
-	hashedPassword, err := auth.HashedPassword(user.Password)
+	//!NOTE: Hash the password
+	hashedPassword, err := utils.HashedPassword(user.Password)
+    if err != nil {
+        utils.WriteError(w, http.StatusInternalServerError, err)
+        return
+    }
+
+	u, err := h.store.GetUserByEmail(user.Email)
+	// //
+	// //
+	if u != nil {
+	    utils.WriteError(w, http.StatusConflict, fmt.Errorf("User already exists"))
+	    return;
+	}
+
+	//!NOTE: Create the user
+	if err := h.store.CreateUser(user,idUser, token, string(hashedPassword)); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+    fmt.Println(idUser)
+
+
+	idClient, err := utils.CreateAnId()
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, err)
+		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
-	//!NOTE: CREATE USER
-	if err := h.store.CreateUser(user, idUser, token, string(hashedPassword)); err != nil {
+
+    fmt.Println("ID CLIENT", idClient)
+	//!NOTE::Asign the role to the client
+
+	if err := h.store.CreateClient(idUser,idClient); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	utils.WriteJson(w, http.StatusOK, map[string]string{"token": token, "message": "User created successfully"})
+    utils.SendEmail(user.Email)
 
+	utils.WriteJson(w, http.StatusOK, map[string]string{"token": token, "message": "Client created successfully"})
+	// utils.SendSms()
 }
+

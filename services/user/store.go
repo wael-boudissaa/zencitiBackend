@@ -43,11 +43,13 @@ func (s *Store) GetUserByEmail(email string) (*types.User, error) {
 		if err != nil {
 			return nil, err
 		}
+        return u, nil
 	}
 	if u.Id == "" {
 		return nil, fmt.Errorf("user not found")
-	}
-	return u, nil
+	}else{
+        return u, nil
+    }
 }
 
 func (s *Store) GetUserById(user types.User) (*types.User, error) {
@@ -76,18 +78,21 @@ func (s *Store) CreateUser(user types.RegisterUser, idUser string, token string,
 		return fmt.Errorf("error creating user: %v", err)
 	}
 
-	// queryCustomer := `INSERT into customer(idCustomer, idProfile) values(?, ?)`
-	// idCustomer, err := auth.CreateAnId()
-	// if err != nil {
-	// 	return fmt.Errorf("error creating user: %v", err)
-	// }
-	// _, err = s.db.Exec(queryCustomer, idCustomer, idUser)
-	// if err != nil {
-	// 	return fmt.Errorf("error creating user: %v", err)
-	// }
 
 	return nil
 }
+
+func (s *Store) CreateClient(idUser string,idClient string ) error {
+    query := `INSERT INTO client (idClient,idProfile)VALUES (?,?)`
+    _, err := s.db.Exec(query, idClient,idUser )
+    if err != nil {
+        return fmt.Errorf("error creating client: %v", err)
+    }
+    return nil
+}
+
+
+
 func scanRowsIntoUser(rows *sql.Rows) (*types.User, error) {
 	user := new(types.User)
 	err := rows.Scan(

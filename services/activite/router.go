@@ -10,6 +10,7 @@ import (
 )
 
 type Handler struct {
+
 	store types.ActiviteStore
 }
 
@@ -19,7 +20,7 @@ func NewHandler(s types.ActiviteStore) *Handler {
 
 func (h *Handler) RegisterRouter(r *mux.Router) {
 	// r.HandleFunc("/activite", h.GetActivite).Methods("GET")
-	r.HandleFunc("/activite/signle/{id}", h.GetActiviteById).Methods("GET")
+	r.HandleFunc("/activite/single/{id}", h.GetActiviteById).Methods("GET")
 	r.HandleFunc("/activite/populaire", h.GetPopulaireActivity).Methods("GET")
 	r.HandleFunc("/activite/type/{type}", h.GetActiviteByType).Methods("GET")
 	r.HandleFunc("/activite/type", h.GetActiviteTypes).Methods("GET")

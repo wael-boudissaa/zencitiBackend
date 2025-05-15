@@ -1,6 +1,8 @@
 package restaurant
 
 import (
+	"errors"
+	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -18,13 +20,31 @@ func NewHandler(s types.RestaurantStore) *Handler {
 
 func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/restaurant", h.GetRestaurant).Methods("GET")
-    r.HandleFunc("/restaurant/{id}", h.GetRestaurantById).Methods("GET")
-    r.HandleFunc("/restaurantWorker", h.GetRestaurantWorker).Methods("GET")
-    r.HandleFunc("/restaurantWorker/{id}", h.GetRestaurantWorkerById).Methods("GET")
-    r.HandleFunc("/restaurantWorker/{id}/feedback", h.GetRestaurantWorkerFeedback).Methods("GET")
-    r.HandleFunc("/reservation", h.GetReservation).Methods("GET")
-    r.HandleFunc("/reservation/{id}", h.GetReservationById).Methods("GET")
+	r.HandleFunc("/restaurant/{id}", h.GetRestaurantById).Methods("GET")
+	// r.HandleFunc("/restaurantWorker", h.GetRestaurantWorker).Methods("GET")
+	// r.HandleFunc("/restaurantWorker/{id}", h.GetRestaurantWorkerById).Methods("GET")
+	// r.HandleFunc("/restaurantWorker/{id}/feedback", h.GetRestaurantWorkerFeedback).Methods("GET")
+	// r.HandleFunc("/reservation", h.GetReservation).Methods("GET")
+	// r.HandleFunc("/reservation/{id}", h.GetReservationById).Methods("GET")
+	r.HandleFunc("/restaurant/tables/{restaurantId}", h.GetRestaurantTables).Methods("GET")
+	// r.HandleFunc("/restauran/tables/status", h.GetStatusTables).Methods("GET")
+}
 
+func (h *Handler) GetRestaurantTables(w http.ResponseWriter, r *http.Request) {
+	restaurantId := mux.Vars(r)["restaurantId"]
+	if restaurantId == "" {
+		utils.WriteError(w, http.StatusBadRequest, errors.New("restaurantId is required"))
+		return
+	}
+
+	tables, err := h.store.GetRestaurantTables(restaurantId)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	log.Println("tables", tables)
+
+	utils.WriteJson(w, http.StatusOK, tables)
 }
 
 func (h *Handler) GetRestaurant(w http.ResponseWriter, r *http.Request) {
@@ -35,7 +55,7 @@ func (h *Handler) GetRestaurant(w http.ResponseWriter, r *http.Request) {
 	}
 	utils.WriteJson(w, http.StatusOK, restaurant)
 }
-
+//
 func (h *Handler) GetRestaurantById(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	restaurant, err := h.store.GetRestaurantById(id)
@@ -46,52 +66,50 @@ func (h *Handler) GetRestaurantById(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJson(w, http.StatusOK, restaurant)
 }
 
-func (h *Handler) GetRestaurantWorker(w http.ResponseWriter, r *http.Request) {
-	restaurant, err := h.store.GetRestaurantWorker()
-	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, err)
-		return
-	}
-	utils.WriteJson(w, http.StatusOK, restaurant)
-}
-
-func (h *Handler) GetRestaurantWorkerById(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
-	restaurant, err := h.store.GetRestaurantWorkerById(id)
-	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, err)
-		return
-	}
-	utils.WriteJson(w, http.StatusOK, restaurant)
-}
-
-func (h *Handler) GetRestaurantWorkerFeedback(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
-	restaurant, err := h.store.GetRestaurantWorkerFeedBack(id)
-	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, err)
-		return
-	}
-	utils.WriteJson(w, http.StatusOK, restaurant)
-}
-
-
-func (h *Handler) GetReservation(w http.ResponseWriter, r *http.Request) {
-    restaurant, err := h.store.GetReservation()
-    if err != nil {
-        utils.WriteError(w, http.StatusBadRequest, err)
-        return
-    }
-    utils.WriteJson(w, http.StatusOK, restaurant)
-}
-
-func (h *Handler) GetReservationById(w http.ResponseWriter, r *http.Request) {
-    id := mux.Vars(r)["id"]
-    restaurant, err := h.store.GetReservationById(id)
-    if err != nil {
-        utils.WriteError(w, http.StatusBadRequest, err)
-        return
-    }
-    utils.WriteJson(w, http.StatusOK, restaurant)
-}
-
+// func (h *Handler) GetRestaurantWorker(w http.ResponseWriter, r *http.Request) {
+// 	restaurant, err := h.store.GetRestaurantWorker()
+// 	if err != nil {
+// 		utils.WriteError(w, http.StatusBadRequest, err)
+// 		return
+// 	}
+// 	utils.WriteJson(w, http.StatusOK, restaurant)
+// }
+//
+// func (h *Handler) GetRestaurantWorkerById(w http.ResponseWriter, r *http.Request) {
+// 	id := mux.Vars(r)["id"]
+// 	restaurant, err := h.store.GetRestaurantWorkerById(id)
+// 	if err != nil {
+// 		utils.WriteError(w, http.StatusBadRequest, err)
+// 		return
+// 	}
+// 	utils.WriteJson(w, http.StatusOK, restaurant)
+// }
+//
+// func (h *Handler) GetRestaurantWorkerFeedback(w http.ResponseWriter, r *http.Request) {
+// 	id := mux.Vars(r)["id"]
+// 	restaurant, err := h.store.GetRestaurantWorkerFeedBack(id)
+// 	if err != nil {
+// 		utils.WriteError(w, http.StatusBadRequest, err)
+// 		return
+// 	}
+// 	utils.WriteJson(w, http.StatusOK, restaurant)
+// }
+//
+// func (h *Handler) GetReservation(w http.ResponseWriter, r *http.Request) {
+// 	restaurant, err := h.store.GetReservation()
+// 	if err != nil {
+// 		utils.WriteError(w, http.StatusBadRequest, err)
+// 		return
+// 	}
+// 	utils.WriteJson(w, http.StatusOK, restaurant)
+// }
+//
+// func (h *Handler) GetReservationById(w http.ResponseWriter, r *http.Request) {
+// 	id := mux.Vars(r)["id"]
+// 	restaurant, err := h.store.GetReservationById(id)
+// 	if err != nil {
+// 		utils.WriteError(w, http.StatusBadRequest, err)
+// 		return
+// 	}
+// 	utils.WriteJson(w, http.StatusOK, restaurant)
+// }

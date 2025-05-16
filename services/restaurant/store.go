@@ -18,13 +18,40 @@ func NewStore(db *sql.DB) *store {
 
 // !NOTE: GET all restaurant
 
-func (s *store) CreateReservation(idReservation string , reservation types.ReservationCreation) error {
-    query := `INSERT INTO reservation (idReservation, idClient, idRestaurant, status, price, timeReservation, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)`
-    _, err := s.db.Exec(query,idReservation , reservation.IdClient, reservation.IdRestaurant, "pending", 0, reservation.TimeSlot, time.Now())
+func (s *store) ModifyPrice(order types.OrderFinalization) error {
+    query := `UPDATE orderList SET totalPrice = ? WHERE idOrder = ?`
+    _, err := s.db.Exec(query, order.Price, order.IdOrder)
     if err != nil {
         return err
     }
     return nil
+}
+
+func (s *store) CreateReservation(idReservation string, reservation types.ReservationCreation) error {
+	query := `INSERT INTO reservation (idReservation, idClient, idRestaurant, status, price, timeReservation, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)`
+	_, err := s.db.Exec(query, idReservation, reservation.IdClient, reservation.IdRestaurant, "pending", 0, reservation.TimeSlot, time.Now())
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *store) CreateOrder(idOrder string, order types.OrderCreation) error {
+	query := `INSERT INTO orderList (idOrder, idReservation, totalPrice, status, createdAt) VALUES (?, ?, ?, ?, ?)`
+	_, err := s.db.Exec(query, idOrder, order.IdReservation, 0, "pending", time.Now())
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *store) AddFoodToOrder(food types.AddFoodToOrder) error {
+	query := `INSERT INTO orderFood (idOrder, idFood, quantity,createdAt) VALUES (?, ?, ?,?)`
+	_, err := s.db.Exec(query, food.IdOrder, food.IdFood, food.Quantity, time.Now())
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *store) GetRestaurantTables(restaurantId string) (*[]types.RestaurantTable, error) {
@@ -70,14 +97,13 @@ func (s *store) GetRestaurant() (*[]types.Restaurant, error) {
 		var rest types.Restaurant
 
 		err = rows.Scan(
-            &rest.IdRestaurant,
-            &rest.IdAdminRestaurant,
-            &rest.NameRestaurant,
-            &rest.Image,
-            &rest.Description,
-            &rest.Capacity,
-            &rest.Location,
-
+			&rest.IdRestaurant,
+			&rest.IdAdminRestaurant,
+			&rest.NameRestaurant,
+			&rest.Image,
+			&rest.Description,
+			&rest.Capacity,
+			&rest.Location,
 		)
 		if err != nil {
 			return nil, err
@@ -89,7 +115,7 @@ func (s *store) GetRestaurant() (*[]types.Restaurant, error) {
 	}
 	return &restaurant, nil
 }
-//
+
 // // func (s *store) GetCategorieFoods() (*[]types.FoodCategory, error) {
 // //     query := `SELECT * FROM foodCategory`
 // //     rows, err := s.db.Query(query)
@@ -121,124 +147,129 @@ func (s *store) GetRestaurantById(id string) (*types.Restaurant, error) {
 	row := s.db.QueryRow(query, id)
 	var rest types.Restaurant
 	err := row.Scan(
-        &rest.IdRestaurant,
-        &rest.IdAdminRestaurant,
-        &rest.NameRestaurant,
-        &rest.Image,
-        &rest.Description,
-        &rest.Capacity,
-        &rest.Location,
+		&rest.IdRestaurant,
+		&rest.IdAdminRestaurant,
+		&rest.NameRestaurant,
+		&rest.Image,
+		&rest.Description,
+		&rest.Capacity,
+		&rest.Location,
 	)
 	if err != nil {
 		return nil, err
 	}
 	return &rest, nil
 }
-//
+
 // //!NOTE : GET all restaurant workers
-// func (s *store) GetRestaurantWorkers() (*[]types.RestaurantWorker, error) {
-// 	query := `SELECT * FROM restaurantWorker`
-// 	rows, err := s.db.Query(query)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer rows.Close() // Ensure rows are closed to avoid memory leaks
-// 	var restaurantWorker []types.RestaurantWorker
 //
-// 	for rows.Next() {
-// 		var rest types.RestaurantWorker
-// 		err = rows.Scan(
-// 			&rest.IdRestaurantWorker,
-// 			&rest.FirstName,
-// 			&rest.LastName,
-// 			&rest.Address,
-// 			&rest.LastName,
-// 			&rest.Email,
-// 			&rest.PhoneNumber,
-// 			&rest.Quote,
-// 			&rest.StartWorking,
-// 			&rest.Nationnallity,
-// 			&rest.NativeLanguage,
-// 			&rest.Rating,
-// 			&rest.Status,
-// 			&rest.IdRestaurant,
-// 		)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		restaurantWorker = append(restaurantWorker, rest)
-// 	}
-// 	if err := rows.Err(); err != nil {
-// 		return nil, err
-// 	}
-// 	return &restaurantWorker, nil
-// }
+//	func (s *store) GetRestaurantWorkers() (*[]types.RestaurantWorker, error) {
+//		query := `SELECT * FROM restaurantWorker`
+//		rows, err := s.db.Query(query)
+//		if err != nil {
+//			return nil, err
+//		}
+//		defer rows.Close() // Ensure rows are closed to avoid memory leaks
+//		var restaurantWorker []types.RestaurantWorker
+//
+//		for rows.Next() {
+//			var rest types.RestaurantWorker
+//			err = rows.Scan(
+//				&rest.IdRestaurantWorker,
+//				&rest.FirstName,
+//				&rest.LastName,
+//				&rest.Address,
+//				&rest.LastName,
+//				&rest.Email,
+//				&rest.PhoneNumber,
+//				&rest.Quote,
+//				&rest.StartWorking,
+//				&rest.Nationnallity,
+//				&rest.NativeLanguage,
+//				&rest.Rating,
+//				&rest.Status,
+//				&rest.IdRestaurant,
+//			)
+//			if err != nil {
+//				return nil, err
+//			}
+//			restaurantWorker = append(restaurantWorker, rest)
+//		}
+//		if err := rows.Err(); err != nil {
+//			return nil, err
+//		}
+//		return &restaurantWorker, nil
+//	}
 //
 // //!NOTE: WE  GONNA NEED THE RESTAURANTWORKER BY ID WHEN I GET THE RATING IG AND IT WILL BE CHANGED
 // //!NOTE : menu by restaurant
-// func (s *store) getMenueByRestaurantId(id string) (*[]types.Menu, error) {
-// 	query := `SELECT * FROM menue WHERE idRestaurant = ?`
-// 	rows, err := s.db.Query(query, id)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer rows.Close() // Ensure rows are closed to avoid memory leaks
-// 	var menues []types.Menu
 //
-// 	for rows.Next() {
-// 		var menue types.Menu
+//	func (s *store) getMenueByRestaurantId(id string) (*[]types.Menu, error) {
+//		query := `SELECT * FROM menue WHERE idRestaurant = ?`
+//		rows, err := s.db.Query(query, id)
+//		if err != nil {
+//			return nil, err
+//		}
+//		defer rows.Close() // Ensure rows are closed to avoid memory leaks
+//		var menues []types.Menu
 //
-// 		err = rows.Scan(
-// 			&menue.IdMenu,
-// 			&menue.IdRestaurant,
-// 			&menue.Name,
-// 			&menue.Active,
-// 			&menue.CreatedAt,
-// 		)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		menues = append(menues, menue)
-// 	}
-// 	if err := rows.Err(); err != nil {
-// 		return nil, err
-// 	}
-// 	return &menues, nil
-// }
+//		for rows.Next() {
+//			var menue types.Menu
+//
+//			err = rows.Scan(
+//				&menue.IdMenu,
+//				&menue.IdRestaurant,
+//				&menue.Name,
+//				&menue.Active,
+//				&menue.CreatedAt,
+//			)
+//			if err != nil {
+//				return nil, err
+//			}
+//			menues = append(menues, menue)
+//		}
+//		if err := rows.Err(); err != nil {
+//			return nil, err
+//		}
+//		return &menues, nil
+//	}
 //
 // //!NOTE: GET THE FOOD BY THE MENU ID
-// func (s *store) getFoodByMenuId(id string) (*[]types.Food, error) {
-// 	query := `SELECT * FROM food WHERE idMenu = ?`
-// 	rows, err := s.db.Query(query, id)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer rows.Close() // Ensure rows are closed to avoid memory leaks
-// 	var foods []types.Food
-//
-// 	for rows.Next() {
-// 		var food types.Food
-//
-// 		err = rows.Scan(
-// 			&food.IdFood,
-// 			&food.IdCategory,
-// 			&food.IdMenu,
-// 			&food.Name,
-// 			&food.Description,
-// 			&food.Image,
-// 			&food.Price,
-// 			&food.Status,
-// 		)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		foods = append(foods, food)
-// 	}
-// 	if err := rows.Err(); err != nil {
-// 		return nil, err
-// 	}
-// 	return &foods, nil
-// }
+func (s *store) GetFoodByMenu(id string) (*[]types.Food, error) {
+	query := `SELECT food.* 
+          FROM food 
+             JOIN menu ON food.idMenu = menu.idMenu 
+                WHERE menu.idMenu = ?`
+	rows, err := s.db.Query(query, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var foods []types.Food
+	for rows.Next() {
+		var food types.Food
+
+		err = rows.Scan(
+			&food.IdFood,
+			&food.IdCategory,
+			&food.IdMenu,
+			&food.Name,
+			&food.Description,
+			&food.Image,
+			&food.Price,
+			&food.Status,
+		)
+		if err != nil {
+			return nil, err
+		}
+		foods = append(foods, food)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return &foods, nil
+}
+
 //
 // //NOTE: GET the reservations by the restaurants
 // func (s *store) getReservationByRestaurantId(id string) (*[]types.Reservation, error) {

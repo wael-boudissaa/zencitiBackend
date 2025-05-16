@@ -25,7 +25,7 @@ type UserStore interface {
 	GetUserById(user User) (*User, error)
 	CreateUser(user RegisterUser, idUser string, token string, hashedPassword string) error
     CreateClient(idUser, idClient string) error
-}
+    }
 type ActiviteStore interface {
 	// GetActivite() (*[]Activite, error)
 	GetActiviteById(id string) (*Activity, error)
@@ -39,6 +39,10 @@ type RestaurantStore interface {
 	GetRestaurant() (*[]Restaurant, error)
 	GetRestaurantById(id string) (*Restaurant, error)
     CreateReservation(idReservation string ,reservation ReservationCreation) error
+    CreateOrder(idOrder string, order OrderCreation) error
+    AddFoodToOrder(food AddFoodToOrder) error
+    ModifyPrice(order OrderFinalization) error
+
 	// GetRestaurantWorker() (*[]RestaurantWorker, error)
 	// GetRestaurantWorkerById(id string) (*RestaurantWorker, error)
 	// GetRestaurantWorkerFeedBack(id string) (*[]RestaurantWorkerFeedBack, error)
@@ -53,7 +57,7 @@ type RestaurantStore interface {
 	// GetMenu() (*[]Menu, error)
 	// GetMenuById(id string) (*Menu, error)
 	// getMenuByRestaurantId(id string) (*Menu, error)
-	// GetFoodByMenu() (*[]Food, error)
+	GetFoodByMenu(idMenu string) (*[]Food, error)
 	// GetFoodById(id string) (*Food, error)
 	// GetWorkerFeedBack() (*[]RestaurantWorkerFeedBack, error)
 	// GetWorkerRestaurantFeedBackBy(id string) (*RestaurantWorkerFeedBack, error)

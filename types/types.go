@@ -77,11 +77,11 @@ type Food struct {
 	IdFood      string  `json:"idFood"`
 	IdCategory  string  `json:"idCategory"`
 	IdMenu      string  `json:"idMenu"`
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	Image       string  `json:"image"`
-	Price       float64 `json:"price"`
-	Status      string  `json:"status"`
+	Name        *string  `json:"name"`
+	Description *string  `json:"description"`
+	Image       *string  `json:"image"`
+	Price       *float64 `json:"price"`
+	Status      *string  `json:"status"`
 }
 
 //!WARNING:: THERE SHOULD BE A GENEARL THING ON THE RESERVATION FOR THE RESTAURANT AND THE ACITIVITE AND ALSO FOR THE RATING AND FEEDBACK
@@ -103,7 +103,6 @@ type Order struct {
 	//!NOTE: I think in this place im gonna fetch all the information about the order the quantity and the food and all
 	IdOrder       string    `json:"idOrder"`
 	IdReservation string    `json:"idReservation"`
-	IdRestaurant  string    `json:"idRestaurant"`
 	TotalPrice    float64   `json:"totalPrice"`
 	Status        string    `json:"status"`
 	CreatedAt     time.Time `json:"createdAt"`

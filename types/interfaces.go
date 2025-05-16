@@ -41,7 +41,7 @@ type RestaurantStore interface {
     CreateReservation(idReservation string ,reservation ReservationCreation) error
     CreateOrder(idOrder string, order OrderCreation) error
     AddFoodToOrder(food AddFoodToOrder) error
-    ModifyPrice(order OrderFinalization) error
+    PostOrderList(order OrderFinalization) error
 
 	// GetRestaurantWorker() (*[]RestaurantWorker, error)
 	// GetRestaurantWorkerById(id string) (*RestaurantWorker, error)

@@ -23,8 +23,8 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/restaurant/{id}", h.GetRestaurantById).Methods("GET")
 	r.HandleFunc("/reservation", h.CreateReservation).Methods("POST")
 	r.HandleFunc("/order", h.CreateOrder).Methods("POST")
-	r.HandleFunc("/order/add", h.AddFoodToOrder).Methods("POST")
-	r.HandleFunc("/order/price", h.ModifyPrice).Methods("POST")
+	// r.HandleFunc("/order/add", h.AddFoodToOrder).Methods("POST")
+	r.HandleFunc("/order/place", h.PostOrderClient).Methods("POST")
 
 	// r.HandleFunc("/restaurantWorker", h.GetRestaurantWorker).Methods("GET")
 	// r.HandleFunc("/restaurantWorker/{id}", h.GetRestaurantWorkerById).Methods("GET")
@@ -36,7 +36,7 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	// r.HandleFunc("/restauran/tables/status", h.GetStatusTables).Methods("GET")
 }
 
-func (h *Handler) ModifyPrice(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) PostOrderClient(w http.ResponseWriter, r *http.Request) {
 	var order types.OrderFinalization
 	if err := utils.ParseJson(r, &order); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
@@ -48,11 +48,12 @@ func (h *Handler) ModifyPrice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.store.ModifyPrice(order)
+	err := h.store.PostOrderList(order)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
+
 	utils.WriteJson(w, http.StatusCreated, "Success modifying price")
 }
 

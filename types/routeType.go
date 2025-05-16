@@ -33,6 +33,7 @@ type OrderCreation struct {
 type FoodItem struct {
 	IdFood   string `json:"idFood"`
 	Quantity int    `json:"quantity"`
+    PriceSingle float64 `json:"priceSingle"`
 }
 
 type OrderFinalization struct {

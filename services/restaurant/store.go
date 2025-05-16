@@ -18,13 +18,22 @@ func NewStore(db *sql.DB) *store {
 
 // !NOTE: GET all restaurant
 
-func (s *store) ModifyPrice(order types.OrderFinalization) error {
-    query := `UPDATE orderList SET totalPrice = ? WHERE idOrder = ?`
-    _, err := s.db.Exec(query, order.Price, order.IdOrder)
-    if err != nil {
-        return err
-    }
-    return nil
+func (s *store) PostOrderList(order types.OrderFinalization) error {
+	var totalPrice float64
+	for _, food := range order.Foods {
+		_, err := s.db.Exec(`Insert INTO orderFood (idOrder, idFood, quantity, createdAt) VALUES (?, ?, ?, ?)`, order.IdOrder, food.IdFood, food.Quantity, time.Now())
+		totalPrice += food.PriceSingle * float64(food.Quantity)
+		if err != nil {
+			return err
+		}
+
+	}
+	query := `UPDATE orderList SET totalPrice = ? WHERE idOrder = ?`
+	_, err := s.db.Exec(query, totalPrice, order.IdOrder)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *store) CreateReservation(idReservation string, reservation types.ReservationCreation) error {

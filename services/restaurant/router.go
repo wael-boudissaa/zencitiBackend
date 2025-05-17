@@ -23,6 +23,8 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/restaurant/{id}", h.GetRestaurantById).Methods("GET")
 	r.HandleFunc("/reservation", h.CreateReservation).Methods("POST")
 	r.HandleFunc("/order", h.CreateOrder).Methods("POST")
+	r.HandleFunc("/menu/actif/{restaurantId}", h.GetAvailableMenuInformation).Methods("GET")
+
 	// r.HandleFunc("/order/add", h.AddFoodToOrder).Methods("POST")
 	r.HandleFunc("/order/place", h.PostOrderClient).Methods("POST")
 
@@ -36,19 +38,42 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	// r.HandleFunc("/restauran/tables/status", h.GetStatusTables).Methods("GET")
 }
 
+func (h *Handler) GetAvailableMenuInformation(w http.ResponseWriter, r *http.Request) {
+	restaurantId := mux.Vars(r)["restaurantId"]
+	if restaurantId == "" {
+		utils.WriteError(w, http.StatusBadRequest, errors.New("restaurantId is required"))
+		return
+	}
+	menu, err := h.store.GetAvailableMenuInformation(restaurantId)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, menu)
+}
+
 func (h *Handler) PostOrderClient(w http.ResponseWriter, r *http.Request) {
-	var order types.OrderFinalization
-	if err := utils.ParseJson(r, &order); err != nil {
+	var orderCreation types.OrderCreation
+	if err := utils.ParseJson(r, &orderCreation); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
-
-	if order.IdOrder == "" {
-		utils.WriteError(w, http.StatusBadRequest, errors.New("idOrder and price are required"))
+	if orderCreation.IdReservation == "" {
+		utils.WriteError(w, http.StatusBadRequest, errors.New("idReservation and idRestaurant are required"))
+		return
+	}
+	idOrder, err := utils.CreateAnId()
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	err = h.store.CreateOrder(idOrder, orderCreation)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	err := h.store.PostOrderList(order)
+	err = h.store.PostOrderList(idOrder, orderCreation.Foods)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return

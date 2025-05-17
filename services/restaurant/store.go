@@ -16,12 +16,52 @@ func NewStore(db *sql.DB) *store {
 	return &store{db: db}
 }
 
+func (s *store) GetAvailableMenuInformation(restaurantId string) (*[]types.MenuInformationFood, error) {
+	query := `
+SELECT food.*,menu.name as menuName
+FROM menu
+JOIN food ON food.idMenu = menu.idMenu
+where menu.active = 1 and menu.idRestaurant = ?;
+`
+	rows, err := s.db.Query(query, restaurantId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close() // Ensure rows are closed to avoid memory leaks
+	var menuInformation []types.MenuInformationFood
+	for rows.Next() {
+
+		var menu types.MenuInformationFood
+		err = rows.Scan(
+			&menu.IdFood,
+			&menu.IdCategory,
+			&menu.IdMenu,
+			&menu.Name,
+			&menu.Description,
+			&menu.Image,
+			&menu.Price,
+			&menu.Status,
+			&menu.MenuName,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		menuInformation = append(menuInformation, menu)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return &menuInformation, nil
+}
+
 // !NOTE: GET all restaurant
 
-func (s *store) PostOrderList(order types.OrderFinalization) error {
+func (s *store) PostOrderList(orderId string, foods []types.FoodItem) error {
 	var totalPrice float64
-	for _, food := range order.Foods {
-		_, err := s.db.Exec(`Insert INTO orderFood (idOrder, idFood, quantity, createdAt) VALUES (?, ?, ?, ?)`, order.IdOrder, food.IdFood, food.Quantity, time.Now())
+	for _, food := range foods {
+		_, err := s.db.Exec(`Insert INTO orderFood (idOrder, idFood, quantity, createdAt) VALUES (?, ?, ?, ?)`, orderId, food.IdFood, food.Quantity, time.Now())
 		totalPrice += food.PriceSingle * float64(food.Quantity)
 		if err != nil {
 			return err
@@ -29,7 +69,7 @@ func (s *store) PostOrderList(order types.OrderFinalization) error {
 
 	}
 	query := `UPDATE orderList SET totalPrice = ? WHERE idOrder = ?`
-	_, err := s.db.Exec(query, totalPrice, order.IdOrder)
+	_, err := s.db.Exec(query, totalPrice, orderId)
 	if err != nil {
 		return err
 	}

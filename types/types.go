@@ -73,6 +73,18 @@ type Menu struct {
 	Active       bool      `json:"active"`
 	CreatedAt    time.Time `json:"createdAt"`
 }
+
+type MenuInformationFood struct {
+    IdMenu       string    `json:"idMenu" db:"idMenu"`
+    IdFood       string    `json:"idFood" db:"idFood"`
+    IdCategory   string    `json:"idCategory" db:"idCategory"`
+    Name         string    `json:"name" db:"name"`
+    Description  *string    `json:"description" db:"description"`
+    Image        *string    `json:"image" db:"image"`
+    Price        float64   `json:"price" db:"price"`
+    Status       string    `json:"status" db:"status"`
+    MenuName   string    `json:"menuName" db:"menuName"`
+}
 type Food struct {
 	IdFood      string  `json:"idFood"`
 	IdCategory  string  `json:"idCategory"`

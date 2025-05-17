@@ -28,6 +28,7 @@ type ReservationCreation struct {
 
 type OrderCreation struct {
 	IdReservation string `json:"idReservation"`
+	Foods   []FoodItem `json:"foods"`
 }
 
 type FoodItem struct {
@@ -36,10 +37,6 @@ type FoodItem struct {
     PriceSingle float64 `json:"priceSingle"`
 }
 
-type OrderFinalization struct {
-	IdOrder string     `json:"idOrder"`
-	Foods   []FoodItem `json:"foods"`
-}
 
 
 

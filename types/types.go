@@ -2,6 +2,30 @@ package types
 
 import "time"
 
+
+type UserInformation struct {
+    FirstName    string    `json:"firstName"`
+	LastName     string    `json:"lastName"`
+	Email        string    `json:"email"`
+	Address      string    `json:"address"`
+	Phone        string    `json:"phone"`
+    Username string `json:"username"`
+
+}
+
+type ProfilePage struct {
+    FirstName    string    `json:"firstName"`
+	LastName     string    `json:"lastName"`
+	Email        string    `json:"email"`
+	Address      string    `json:"address"`
+	Phone        string    `json:"phone"`
+    Following int `json:"following"`
+    Followers int `json:"followers"`
+    Username string `json:"username"`
+
+}
+
+
 type Activity struct {
 	IdActivity     string `json:"idActivity"`
 	NameActivity   string `json:"nameActivity"`
@@ -35,6 +59,19 @@ type RestaurantTable struct {
     Duration_minutes int `json:"duration_minutes"`
     Is_available bool   `json:"is_available"`
 }
+
+type RestaurantTableStatus struct {
+    IdTable      *string `json:"idTable"`
+    PosX         *int    `json:"posX"` 
+    PosY         *int    `json:"posY"`
+    IdReservation *string `json:"idReservation"`
+    IdRestaurant *string `json:"idRestaurant"`
+    NumberOfPeople *int `json:"numberOfPeople"`
+    TimeFrom     *time.Time `json:"timeFrom"`
+    TimeTo       *time.Time `json:"timeTo"`
+    Status      *string `json:"status"`
+}
+    
 type RestaurantWorker struct {
 	IdRestaurantWorker string    `json:"idRestaurantWorker"`
 	IdRestaurant       string    `json:"idRestaurant"`
@@ -61,8 +98,7 @@ type RestaurantWorkerFeedBack struct {
 
 type Friendship struct {
 	IdFriendship string    `json:"idFriendship"`
-	IdClient1    string    `json:"idClient1"`
-	IdClient2    string    `json:"idClient2"`
+    Username string   `json:"username"`
 	Status       string    `json:"status"`
 	CreatedAt    time.Time `json:"createdAt"`
 }
@@ -132,6 +168,8 @@ type User struct {
 	LastLogin    time.Time `json:"lastLogin"`
 	CreatedAt    time.Time `json:"createdAt"`
 	Refreshtoken string    `json:"refreshToken"`
+    ClientId   string    `json:"idClient"`
+    Username string `json:"username"`
 }
 
 //

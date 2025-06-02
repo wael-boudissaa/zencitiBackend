@@ -2,7 +2,9 @@ package restaurant
 
 import (
 	"database/sql"
+	"log"
 	"time"
+
 	// "log"
 
 	"github.com/wael-boudissaa/zencitiBackend/types"
@@ -19,7 +21,7 @@ func NewStore(db *sql.DB) *store {
 func (s *store) GetAvailableMenuInformation(restaurantId string) (*[]types.MenuInformationFood, error) {
 	query := `
 SELECT food.*,menu.name as menuName
-FROM menu
+ FROM menu
 JOIN food ON food.idMenu = menu.idMenu
 where menu.active = 1 and menu.idRestaurant = ?;
 `
@@ -77,8 +79,17 @@ func (s *store) PostOrderList(orderId string, foods []types.FoodItem) error {
 }
 
 func (s *store) CreateReservation(idReservation string, reservation types.ReservationCreation) error {
-	query := `INSERT INTO reservation (idReservation, idClient, idRestaurant, status, price, timeReservation, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)`
-	_, err := s.db.Exec(query, idReservation, reservation.IdClient, reservation.IdRestaurant, "pending", 0, reservation.TimeSlot, time.Now())
+	query := `INSERT INTO reservation (idReservation, idClient, idRestaurant, idTable, status, createdAt, numberOfPeople, timeFrom, timeTo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	_, err := s.db.Exec(query, idReservation, reservation.IdClient, reservation.IdRestaurant, reservation.TableId, "pending", time.Now(), reservation.NumberOfPeople, reservation.TimeFrom, time.Now().Add(time.Hour*2))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *store) ReserveTable(idReservation string, reservation types.ReservationCreation) error {
+	query := `INSERT INTO table_reservation (idTable, idReservation, numberOfPeople, timeFrom, timeTo) VALUES (?, ?, ?, ?, ?)`
+	_, err := s.db.Exec(query, reservation.TableId, idReservation, reservation.NumberOfPeople, reservation.TimeFrom, reservation.TimeTo)
 	if err != nil {
 		return err
 	}
@@ -103,33 +114,53 @@ func (s *store) AddFoodToOrder(food types.AddFoodToOrder) error {
 	return nil
 }
 
-func (s *store) GetRestaurantTables(restaurantId string) (*[]types.RestaurantTable, error) {
-	query := `SELECT * FROM table_restaurant WHERE idRestaurant = ?`
-	rows, err := s.db.Query(query, restaurantId)
+func (s *store) GetRestaurantTables(restaurantId string, timeReserved time.Time) (*[]types.RestaurantTableStatus, error) {
+	query := `SELECT tr.idTable, tr.idRestaurant, r.idReservation, tr.posX, tr.posY, r.timeFrom, r.timeTo, r.numberOfPeople,
+    IF(r.idReservation IS NOT NULL, 'reserved', 'available') AS status
+FROM 
+    table_restaurant tr
+LEFT JOIN 
+    reservation r 
+    ON tr.idTable = r.idTable 
+    AND r.timeFrom = ?
+WHERE tr.idRestaurant = ?;
+`
+
+	log.Println("Restaurant ID:", restaurantId)
+	log.Println("Time Reserved:", timeReserved.Format("2006-01-02 15:04:05"))
+	rows, err := s.db.Query(query, timeReserved, restaurantId)
 	if err != nil {
+		log.Println("Error executing query:", err)
 		return nil, err
 	}
-	defer rows.Close() // Ensure rows are closed to avoid memory leaks
-	var tables []types.RestaurantTable
+	defer rows.Close()
+
+	var tables []types.RestaurantTableStatus
 	for rows.Next() {
-		var table types.RestaurantTable
+		var table types.RestaurantTableStatus
 		err = rows.Scan(
 			&table.IdTable,
 			&table.IdRestaurant,
-			&table.ReservationTime,
+			&table.IdReservation,
 			&table.PosX,
 			&table.PosY,
-			&table.Duration_minutes,
-			&table.Is_available,
+			&table.TimeFrom,
+			&table.TimeTo,
+			&table.NumberOfPeople,
+			&table.Status,
 		)
 		if err != nil {
+			log.Println("Error scanning row:", err)
 			return nil, err
 		}
 		tables = append(tables, table)
 	}
+
 	if err := rows.Err(); err != nil {
+		log.Println("Error after iterating rows:", err)
 		return nil, err
 	}
+
 	return &tables, nil
 }
 

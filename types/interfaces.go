@@ -1,5 +1,7 @@
 package types
 
+import "time"
+
 type ProfileStore interface {
 	GetProfileById(id string) (*User, error)
 	CreateProfile(profile User, id string) error
@@ -24,8 +26,16 @@ type UserStore interface {
 	GetUserByEmail(email string) (*User, error)
 	GetUserById(user User) (*User, error)
 	CreateUser(user RegisterUser, idUser string, token string, hashedPassword string) error
-    CreateClient(idUser, idClient string) error
-    }
+	CreateClient(idUser, idClient, username string) error
+	GetClientIdByUsername(username string) (string, error)
+	SendRequestFriend(idFriendship string, idSender string, idReceiver string) error
+	AcceptRequestFriend(idFriendship string) error
+	GetFriendshipRequested(idClient string) (*[]Friendship, error)
+	CountFollowers(idClient string) (int, error)
+	CountFollowing(idClient string) (int, error)
+    GetClientInformation(idClient string) (*ProfilePage, error)
+}
+
 type ActiviteStore interface {
 	// GetActivite() (*[]Activite, error)
 	GetActiviteById(id string) (*Activity, error)
@@ -35,15 +45,15 @@ type ActiviteStore interface {
 }
 
 type RestaurantStore interface {
-    GetRestaurantTables(restaurantId string) (*[]RestaurantTable, error)
+	GetRestaurantTables(restaurantId string, timeSlot time.Time) (*[]RestaurantTableStatus, error)
 	GetRestaurant() (*[]Restaurant, error)
 	GetRestaurantById(id string) (*Restaurant, error)
-    CreateReservation(idReservation string ,reservation ReservationCreation) error
-    CreateOrder(idOrder string, order OrderCreation) error
-    AddFoodToOrder(food AddFoodToOrder) error
-    PostOrderList(orderId string ,food []FoodItem) error
-    GetAvailableMenuInformation(restaurantId string) (*[]MenuInformationFood, error)
-
+	CreateReservation(idReservation string, reservation ReservationCreation) error
+	CreateOrder(idOrder string, order OrderCreation) error
+	AddFoodToOrder(food AddFoodToOrder) error
+	PostOrderList(orderId string, food []FoodItem) error
+	GetAvailableMenuInformation(restaurantId string) (*[]MenuInformationFood, error)
+	ReserveTable(idReservation string, reservation ReservationCreation) error
 
 	// GetRestaurantWorker() (*[]RestaurantWorker, error)
 	// GetRestaurantWorkerById(id string) (*RestaurantWorker, error)

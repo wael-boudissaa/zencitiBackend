@@ -33,7 +33,7 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	// r.HandleFunc("/restaurantWorker/{id}/feedback", h.GetRestaurantWorkerFeedback).Methods("GET")
 	// r.HandleFunc("/reservation", h.GetReservation).Methods("GET")
 	// r.HandleFunc("/reservation/{id}", h.GetReservationById).Methods("GET")
-	r.HandleFunc("/restaurant/tables/{restaurantId}", h.GetRestaurantTables).Methods("GET")
+	r.HandleFunc("/restaurant/tables", h.GetRestaurantTables).Methods("POST")
 	r.HandleFunc("/food/{menuId}", h.GetFoodByMenu).Methods("GET")
 	// r.HandleFunc("/restauran/tables/status", h.GetStatusTables).Methods("GET")
 }
@@ -59,7 +59,7 @@ func (h *Handler) PostOrderClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if orderCreation.IdReservation == "" {
-		utils.WriteError(w, http.StatusBadRequest, errors.New("idReservation and idRestaurant are required"))
+		utils.WriteError(w, http.StatusBadRequest, errors.New("idReservation"))
 		return
 	}
 	idOrder, err := utils.CreateAnId()
@@ -115,18 +115,26 @@ func (h *Handler) GetFoodByMenu(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetRestaurantTables(w http.ResponseWriter, r *http.Request) {
-	restaurantId := mux.Vars(r)["restaurantId"]
-	if restaurantId == "" {
+	var tableRestaurant types.GetRestaurantTable
+
+	if err := utils.ParseJson(r, &tableRestaurant); err != nil {
+
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	log.Println("Parsed JSON:", tableRestaurant)
+	if tableRestaurant.IdRestaurant == "" {
 		utils.WriteError(w, http.StatusBadRequest, errors.New("restaurantId is required"))
 		return
 	}
 
-	tables, err := h.store.GetRestaurantTables(restaurantId)
+	tables, err := h.store.GetRestaurantTables(tableRestaurant.IdRestaurant, tableRestaurant.TimeSlot)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
-	log.Println("tables", tables)
+	log.Println("Tables:", tables)
 
 	utils.WriteJson(w, http.StatusOK, tables)
 }
@@ -164,10 +172,10 @@ func (h *Handler) CreateReservation(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, http.StatusBadRequest, errors.New("idClient and idRestaurant are required"))
 		return
 	}
-	if reservation.TimeSlot.IsZero() {
-		utils.WriteError(w, http.StatusBadRequest, errors.New("timeSlot is required"))
-		return
-	}
+	// if reservation.TimeFrom.In.IsZero() {
+	// 	utils.WriteError(w, http.StatusBadRequest, errors.New("timeSlot is required"))
+	// 	return
+	// }
 	idReservation, err := utils.CreateAnId()
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
@@ -179,6 +187,12 @@ func (h *Handler) CreateReservation(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
+	// err = h.store.ReserveTable(idReservation, reservation)
+	// if err != nil {
+	// 	utils.WriteError(w, http.StatusInternalServerError, err)
+	// 	return
+	// }
+
 	utils.WriteJson(w, http.StatusCreated, idReservation)
 }
 

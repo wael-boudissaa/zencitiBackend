@@ -18,27 +18,33 @@ type RegisterUser struct {
 	Address   string `json:"address"`
 	Type      string `json:"type"`
 	Phone     string `json:"phone_number"`
+    UserName string `json:"username"`
 }
 
 type ReservationCreation struct {
-	IdClient     string    `json:"idClient"`
+	IdClient       string     `json:"idClient"`
+	IdRestaurant   string     `json:"idRestaurant"`
+	NumberOfPeople int        `json:"numberOfPeople"`
+	TimeFrom       time.Time  `json:"timeFrom"`
+	TimeTo         *time.Time `json:"timeTo"`
+	TableId        string     `json:"idTable"`
+}
+
+type GetRestaurantTable struct {
 	IdRestaurant string    `json:"idRestaurant"`
 	TimeSlot     time.Time `json:"timeSlot"`
 }
 
 type OrderCreation struct {
-	IdReservation string `json:"idReservation"`
-	Foods   []FoodItem `json:"foods"`
+	IdReservation string     `json:"idReservation"`
+	Foods         []FoodItem `json:"foods"`
 }
 
 type FoodItem struct {
-	IdFood   string `json:"idFood"`
-	Quantity int    `json:"quantity"`
-    PriceSingle float64 `json:"priceSingle"`
+	IdFood      string  `json:"idFood"`
+	Quantity    int     `json:"quantity"`
+	PriceSingle float64 `json:"priceSingle"`
 }
-
-
-
 
 type AddFoodToOrder struct {
 	IdOrder  string `json:"idOrder"`
@@ -65,4 +71,13 @@ type ServicesAssignPrestataire struct {
 type RequestConfirmationRoute struct {
 	ClientId      string `json:"client_id"`
 	PrestataireId string `json:"prestataire_id"`
+}
+
+type SendRequestFriend struct {
+	FromClient string `json:"from_client"`
+	ToClient   string `json:"to_client"`
+}
+
+type AcceptFriendRequest struct {
+    IdFriendship string `json:"idFriendship"`
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/wael-boudissaa/zencitiBackend/services/activite"
 	"github.com/wael-boudissaa/zencitiBackend/services/restaurant"
 	"github.com/wael-boudissaa/zencitiBackend/services/user"
+	"github.com/wael-boudissaa/zencitiBackend/utils"
 )
 
 type APISERVER struct {
@@ -26,6 +27,8 @@ func (s *APISERVER) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	router := mux.NewRouter()
 	subrouter := router.PathPrefix("/").Subrouter()
 	// !NOTE : SUBROUTER FOR THE USER
+
+	subrouter.Use(utils.LogMiddleware)
 
 	userStore := user.NewStore(s.db)
 	userHandler := user.NewHandler(userStore)

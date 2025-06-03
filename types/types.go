@@ -4,11 +4,14 @@ import "time"
 
 
 type UserInformation struct {
+    IdClient    string    `json:"idClient"`
     FirstName    string    `json:"firstName"`
 	LastName     string    `json:"lastName"`
 	Email        string    `json:"email"`
 	Address      string    `json:"address"`
 	Phone        string    `json:"phone"`
+    Following int `json:"following"`
+    Followers int `json:"followers"`
     Username string `json:"username"`
 
 }

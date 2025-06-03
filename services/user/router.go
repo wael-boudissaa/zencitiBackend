@@ -37,6 +37,7 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/auth/{provider}/callback", completeAuth).Methods("GET")
 	router.HandleFunc("/auth/logout", logout).Methods("GET")
 	router.HandleFunc("/clientinformation/{idClient}", h.ClientInformation).Methods("GET")
+	router.HandleFunc("/usernameinformation/{username}", h.ClientInformationUsername).Methods("GET")
 	// admin
 }
 
@@ -267,6 +268,23 @@ func (h *Handler) ClientInformation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	u, err := h.store.GetClientInformation(idClient)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, u)
+}
+
+func (h *Handler) ClientInformationUsername(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	username, ok := vars["username"]
+	if !ok {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idClient is required"))
+		return
+	}
+
+	u, err := h.store.GetClientInformationUsername(username)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return

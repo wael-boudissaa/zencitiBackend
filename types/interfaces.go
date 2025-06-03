@@ -33,6 +33,7 @@ type UserStore interface {
 	GetFriendshipRequested(idClient string) (*[]Friendship, error)
 	CountFollowers(idClient string) (int, error)
 	CountFollowing(idClient string) (int, error)
+    GetClientInformationUsername(username string) (*ProfilePage, error)
     GetClientInformation(idClient string) (*ProfilePage, error)
 }
 

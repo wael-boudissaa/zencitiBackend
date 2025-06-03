@@ -78,9 +78,77 @@ func (s *Store) GetClientIdByUsername(username string) (string, error) {
 	return clientId, nil
 }
 
+func (s *Store) GetClientInformationUsername(username string) (*types.ProfilePage, error) {
+	query := `
+		SELECT 
+        client.idClient,
+			profile.firstName, 
+			profile.lastName, 
+			profile.email,
+			profile.address,
+			profile.phoneNumber,
+			client.username ,
+            client.following,
+            client.followers
+		FROM profile 
+		JOIN client ON profile.idProfile = client.idProfile
+		WHERE client.username = ?
+	`
+
+	row := s.db.QueryRow(query, username)
+	u := new(types.UserInformation)
+	err := row.Scan(
+		&u.IdClient,
+		&u.FirstName,
+		&u.LastName,
+		&u.Email,
+		&u.Address,
+		&u.Phone,
+		&u.Username,
+		&u.Following,
+		&u.Followers,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil // No such client found
+	} else if err != nil {
+		return nil, fmt.Errorf("error retrieving client information: %v", err)
+	}
+	// Get followers/following counts
+	following, _ := s.CountFollowing(u.IdClient)
+	followers, _ := s.CountFollowers(u.IdClient)
+
+	err = s.UpdateFollowingFollowers(u.IdClient, following, followers)
+	if err != nil {
+		return nil, fmt.Errorf("error updating following/followers count: %v", err)
+	}
+
+	profilePage := &types.ProfilePage{
+		FirstName: u.FirstName,
+		LastName:  u.LastName,
+		Email:     u.Email,
+		Address:   u.Address,
+		Phone:     u.Phone,
+		Username:  u.Username,
+		Following: following,
+		Followers: followers,
+	}
+
+	return profilePage, nil
+}
+
+func (s *Store) UpdateFollowingFollowers(idClient string, following int, followers int) error {
+	query := `UPDATE client SET following = ?, followers = ? WHERE idClient = ?`
+	_, err := s.db.Exec(query, following, followers, idClient)
+	if err != nil {
+		return fmt.Errorf("error updating following/followers count: %v", err)
+	}
+	return nil
+}
+
 func (s *Store) GetClientInformation(idClient string) (*types.ProfilePage, error) {
 	query := `
 		SELECT 
+        client.idClient,
 			profile.firstName, 
 			profile.lastName, 
 			profile.email,
@@ -92,14 +160,10 @@ func (s *Store) GetClientInformation(idClient string) (*types.ProfilePage, error
 		WHERE client.idClient = ?
 	`
 
-	// Get followers/following counts
-	following, _ := s.CountFollowing(idClient)
-	followers, _ := s.CountFollowers(idClient)
-
 	row := s.db.QueryRow(query, idClient)
-
 	u := new(types.UserInformation)
 	err := row.Scan(
+		&u.IdClient,
 		&u.FirstName,
 		&u.LastName,
 		&u.Email,
@@ -111,6 +175,15 @@ func (s *Store) GetClientInformation(idClient string) (*types.ProfilePage, error
 		return nil, nil // No such client found
 	} else if err != nil {
 		return nil, fmt.Errorf("error retrieving client information: %v", err)
+	}
+	// Get followers/following counts
+	following, _ := s.CountFollowing(u.IdClient)
+	followers, _ := s.CountFollowers(u.IdClient)
+	log.Println("Following count:", following, "Followers count:", followers)
+
+	err = s.UpdateFollowingFollowers(u.IdClient, following, followers)
+	if err != nil {
+		return nil, fmt.Errorf("error updating following/followers count: %v", err)
 	}
 
 	profilePage := &types.ProfilePage{
@@ -149,7 +222,7 @@ func (s *Store) AcceptRequestFriend(idFriendship string) error {
 func (s *Store) CountFollowing(idClient string) (int, error) {
 	query := `SELECT COUNT(*) FROM friendship
 WHERE idClient1 = ? AND status = 'accepted';`
-	row := s.db.QueryRow(query, idClient, idClient)
+	row := s.db.QueryRow(query, idClient)
 	var count int
 	err := row.Scan(&count)
 	if err != nil {

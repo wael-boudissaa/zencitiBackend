@@ -4,7 +4,6 @@ import (
 	"database/sql"
 
 	"github.com/wael-boudissaa/zencitiBackend/types"
-
 )
 
 type Store struct {
@@ -42,25 +41,59 @@ func NewStore(db *sql.DB) *Store {
 // 	return &activite, nil
 // }
 //
+
+func (s *Store) GetRecentActivities(idClient string) (*[]types.ActivityProfile, error) {
+	query := `SELECT
+    activity.idActivity,activity.nameActivity,activity.descriptionActivity,activity.imageActivity,activity.popularity,clientActivity.timeActivity
+    FROM clientActivity join activity on clientActivity.idActivity=
+    activity.idActivity where clientActivity.idClient=? ORDER BY
+    clientActivity.timeActivity DESC LIMIT 5 `
+
+	rows, err := s.db.Query(query, idClient)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close() // Ensure rows are closed to avoid memory leaks
+	var activite []types.ActivityProfile
+	for rows.Next() {
+		var act types.ActivityProfile
+		err = rows.Scan(
+			&act.IdActivity,
+			&act.NameActivity,
+			&act.Description,
+			&act.ImageActivite,
+			&act.Popularity,
+			&act.TimeActivity,
+		)
+		if err != nil {
+			return nil, err
+		}
+		activite = append(activite, act)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return &activite, nil
+}
+
 func (s *Store) GetActiviteById(id string) (*types.Activity, error) {
 	query := `SELECT * FROM activity WHERE idActivity = ?`
 	row := s.db.QueryRow(query, id)
 	var act types.Activity
 	err := row.Scan(
-        &act.IdActivity,
-        &act.NameActivity,
-        &act.Description,
-        &act.ImageActivite,
-        &act.IdTypeActivity,
-        &act.Popularity,
+		&act.IdActivity,
+		&act.NameActivity,
+		&act.Description,
+		&act.ImageActivite,
+		&act.IdTypeActivity,
+		&act.Popularity,
 	)
-
 	if err != nil {
 		return nil, err
 	}
 	return &act, nil
 }
-//
+
 func (s *Store) GetActiviteTypes() (*[]types.ActivitetType, error) {
 	query := `SELECT * FROM typeActivity`
 	rows, err := s.db.Query(query)
@@ -75,7 +108,7 @@ func (s *Store) GetActiviteTypes() (*[]types.ActivitetType, error) {
 		err = rows.Scan(
 			&act.IdActiviteType,
 			&act.NameActiviteType,
-            &act.ImageActivity,
+			&act.ImageActivity,
 		)
 		if err != nil {
 			return nil, err
@@ -87,7 +120,7 @@ func (s *Store) GetActiviteTypes() (*[]types.ActivitetType, error) {
 	}
 	return &activite, nil
 }
-//
+
 func (s *Store) GetActivityByTypes(id string) (*[]types.Activity, error) {
 	query := `SELECT * FROM activity WHERE idTypeActivity = ?`
 	rows, err := s.db.Query(query, id)
@@ -100,12 +133,12 @@ func (s *Store) GetActivityByTypes(id string) (*[]types.Activity, error) {
 	for rows.Next() {
 		var act types.Activity
 		err = rows.Scan(
-            &act.IdActivity,
-            &act.NameActivity,
-            &act.Description,
-            &act.ImageActivite,
-            &act.IdTypeActivity,
-            &act.Popularity,
+			&act.IdActivity,
+			&act.NameActivity,
+			&act.Description,
+			&act.ImageActivite,
+			&act.IdTypeActivity,
+			&act.Popularity,
 		)
 		if err != nil {
 			return nil, err
@@ -117,7 +150,7 @@ func (s *Store) GetActivityByTypes(id string) (*[]types.Activity, error) {
 	}
 	return &activity, nil
 }
-//
+
 func (s *Store) GetPopularActivities() (*[]types.Activity, error) {
 	query := `SELECT * FROM activity ORDER BY popularity DESC`
 	rows, err := s.db.Query(query)
@@ -130,12 +163,12 @@ func (s *Store) GetPopularActivities() (*[]types.Activity, error) {
 	for rows.Next() {
 		var act types.Activity
 		err = rows.Scan(
-            &act.IdActivity,
-            &act.NameActivity,
-            &act.Description,
-            &act.ImageActivite,
-            &act.IdTypeActivity,
-            &act.Popularity,
+			&act.IdActivity,
+			&act.NameActivity,
+			&act.Description,
+			&act.ImageActivite,
+			&act.IdTypeActivity,
+			&act.Popularity,
 		)
 		if err != nil {
 			return nil, err

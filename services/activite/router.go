@@ -10,7 +10,6 @@ import (
 )
 
 type Handler struct {
-
 	store types.ActiviteStore
 }
 
@@ -21,9 +20,10 @@ func NewHandler(s types.ActiviteStore) *Handler {
 func (h *Handler) RegisterRouter(r *mux.Router) {
 	// r.HandleFunc("/activite", h.GetActivite).Methods("GET")
 	r.HandleFunc("/activite/single/{id}", h.GetActiviteById).Methods("GET")
-	r.HandleFunc("/activite/populaire", h.GetPopulaireActivity).Methods("GET")
-	r.HandleFunc("/activite/type/{type}", h.GetActiviteByType).Methods("GET")
-	r.HandleFunc("/activite/type", h.GetActiviteTypes).Methods("GET")
+	r.HandleFunc("/activity/populaire", h.GetPopulaireActivity).Methods("GET")
+	r.HandleFunc("/activity/recent/{idClient}", h.GetRecentActivite).Methods("GET")
+	r.HandleFunc("/activity/type/{type}", h.GetActiviteByType).Methods("GET")
+	r.HandleFunc("/activity/type", h.GetActiviteTypes).Methods("GET")
 }
 
 //	func (h *Handler) GetActivite(w http.ResponseWriter, r *http.Request) {
@@ -58,6 +58,20 @@ func (h *Handler) GetActiviteById(w http.ResponseWriter, r *http.Request) {
 	// 	"message": "Success",
 	// 	"data":    activite,
 	// }
+
+	utils.WriteJson(w, http.StatusOK, activite)
+}
+
+func (h *Handler) GetRecentActivite(w http.ResponseWriter, r *http.Request) {
+	idClient := mux.Vars(r)["idClient"]
+	// Get the recent activities for the client
+	// This function should be implemented in the store to fetch recent activities
+
+	activite, err := h.store.GetRecentActivities(idClient)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
 
 	utils.WriteJson(w, http.StatusOK, activite)
 }

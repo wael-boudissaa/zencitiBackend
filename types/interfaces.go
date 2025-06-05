@@ -39,6 +39,7 @@ type UserStore interface {
 
 type ActiviteStore interface {
 	// GetActivite() (*[]Activite, error)
+    GetRecentActivities(idClient string ) (*[]ActivityProfile, error)
 	GetActiviteById(id string) (*Activity, error)
 	GetActivityByTypes(typeActivite string) (*[]Activity, error)
 	GetActiviteTypes() (*[]ActivitetType, error)

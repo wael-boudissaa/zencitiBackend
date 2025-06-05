@@ -8,6 +8,15 @@ type UserLogin struct {
 	Password string `json:"password"`
 }
 
+type ActivityProfile struct {
+    IdActivity    string    `json:"idActivity"`
+    NameActivity  string    `json:"nameActivity"`
+    Description   string    `json:"descriptionActivity"`
+    ImageActivite string    `json:"imageActivity"`
+    Popularity    int       `json:"popularity"`
+    TimeActivity  time.Time `json:"timeActivity"`
+}
+
 type RegisterUser struct {
 	Email     string `json:"email"`
 	Password  string `json:"password"`
@@ -81,3 +90,4 @@ type SendRequestFriend struct {
 type AcceptFriendRequest struct {
     IdFriendship string `json:"idFriendship"`
 }
+

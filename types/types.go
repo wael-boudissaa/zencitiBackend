@@ -142,15 +142,20 @@ type Reservation struct {
 	TimeReservation time.Time `json:"timeReservation"`
 	CreatedAt       time.Time `json:"createdAt"`
 }
+type PostRatingRestaurant struct {
+	IdRating     string    `json:"idRating"`
+	IdClient     string    `json:"idClient"`
+	IdRestaurant string    `json:"idRestaurant"`
+	RatingValue  int       `json:"rating"`
+	Comment      string    `json:"comment"`
+}
 
 type RatingRestaurant struct {
-	IdRating string `json:"idRating"`
-	IdClient string `json:"idClient"`
-    IdRestaurant string `json:"idRestaurant"`
-    RatingType string `json:"ratingType"` 
-    RatingValue int    `json:"rating"`
-    Comment string `json:"comment"`
-    CreatedAt time.Time `json:"createdAt"`
+    FirstName    string    `json:"firstName"`
+    LastName     string    `json:"lastName"`
+	RatingValue  int       `json:"rating"`
+	Comment      string    `json:"comment"`
+	CreatedAt    time.Time `json:"createdAt"`
 }
 
 // !TODO: REMOVE THE IDRESTAURANT FROM THE ORDER

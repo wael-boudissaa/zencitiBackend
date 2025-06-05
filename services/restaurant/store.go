@@ -580,22 +580,41 @@ func convertToInterfaceSlice(strs []string) []interface{} {
 	return result
 }
 
+func (s *store) PostRatingRestaurant(rating types.PostRatingRestaurant) error {
+	query := `INSERT INTO rating (idRating, idClient, idRestaurant, ratingType, rating, comment, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)`
+	_, err := s.db.Exec(query, rating.IdRating, rating.IdClient, rating.IdRestaurant, "restaurant", rating.RatingValue, rating.Comment, time.Now())
+	if err != nil {
+		return fmt.Errorf("error inserting rating: %v", err)
+	}
+	return nil
+}
+
 func (s *store) GetRatingOfFriendsRestaurant(friendsId []string, idRestaurant string) (*[]types.RatingRestaurant, error) {
 	if len(friendsId) == 0 {
 		return &[]types.RatingRestaurant{}, nil
 	}
 
-	query := `SELECT idRating, idClient, idRestaurant, ratingType, rating, comment, createdAt  
-	          FROM rating 
-	          WHERE idRestaurant=? AND idClient IN (`
+	query := `
+SELECT firstName, lastName, rating, comment, createdAt
+FROM (
+    SELECT 
+        profile.firstName,
+        profile.lastName,
+        rating.rating,
+        rating.comment,
+        rating.createdAt,
+        ROW_NUMBER() OVER (PARTITION BY rating.idClient ORDER BY rating.createdAt DESC) as rn
+    FROM rating 
+    JOIN client ON rating.idClient = client.idClient 
+    JOIN profile ON client.idProfile = profile.idProfile 
+    WHERE rating.idRestaurant = ? AND rating.idClient IN (`
 	for i := range friendsId {
 		if i > 0 {
 			query += ", "
 		}
 		query += "?"
 	}
-	query += `)`
-
+	query += `)) AS ranked WHERE rn = 1`
 	args := append([]interface{}{idRestaurant}, convertToInterfaceSlice(friendsId)...)
 	rows, err := s.db.Query(query, args...)
 	if err != nil {
@@ -608,10 +627,8 @@ func (s *store) GetRatingOfFriendsRestaurant(friendsId []string, idRestaurant st
 	for rows.Next() {
 		var rating types.RatingRestaurant
 		err = rows.Scan(
-			&rating.IdRating,
-			&rating.IdClient,
-			&rating.IdRestaurant,
-			&rating.RatingType,
+			&rating.FirstName,
+			&rating.LastName,
 			&rating.RatingValue,
 			&rating.Comment,
 			&rating.CreatedAt,

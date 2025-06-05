@@ -38,6 +38,7 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/auth/logout", logout).Methods("GET")
 	router.HandleFunc("/clientinformation/{idClient}", h.ClientInformation).Methods("GET")
 	router.HandleFunc("/usernameinformation/{username}", h.ClientInformationUsername).Methods("GET")
+router.HandleFunc("/username", h.GetUsername).Methods("GET")
 
 	// admin
 }
@@ -294,3 +295,22 @@ func (h *Handler) ClientInformationUsername(w http.ResponseWriter, r *http.Reque
 	utils.WriteJson(w, http.StatusOK, u)
 }
 
+func (h *Handler) GetUsername(w http.ResponseWriter, r *http.Request) {
+	prefix := r.URL.Query().Get("prefix")
+	if prefix == "" {
+		http.Error(w, "prefix is required", http.StatusBadRequest)
+		return
+	}
+	if prefix == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("username is required"))
+		return
+	}
+
+	username, err := h.store.SearchUsersByUsernamePrefix(prefix)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, map[string]interface{}{"usernames": username})
+}

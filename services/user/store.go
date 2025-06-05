@@ -64,6 +64,30 @@ func (s *Store) GetUserByEmail(email string) (*types.User, error) {
 	return u, nil
 }
 
+func (s *Store) SearchUsersByUsernamePrefix(prefix string) (*[]string, error) {
+	query := `SELECT username FROM client WHERE username LIKE ? LIMIT 5`
+	likePattern := prefix + "%"
+
+	rows, err := s.db.Query(query, likePattern)
+	if err != nil {
+		return nil, fmt.Errorf("error searching usernames: %v", err)
+	}
+	defer rows.Close()
+
+	usernames := []string{}
+	for rows.Next() {
+		var username string
+		if err := rows.Scan(&username); err != nil {
+			return nil, fmt.Errorf("error scanning username: %v", err)
+		}
+		usernames = append(usernames, username)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating username rows: %v", err)
+	}
+	return &usernames, nil
+}
+
 func (s *Store) GetFriendsOfClient(idClient string) (*[]string, error) {
 	query := `select idClient2 from friendship where idClient1=? and status ="accepted"`
 	rows, err := s.db.Query(query, idClient)
@@ -86,53 +110,14 @@ func (s *Store) GetFriendsOfClient(idClient string) (*[]string, error) {
 	return &friends, nil
 }
 
-func convertToInterfaceSlice(strs []string) []interface{} {
-	result := make([]interface{}, len(strs))
-	for i, s := range strs {
-		result[i] = s
-	}
-	return result
-}
-
-func (s *Store) GetRatingOfFriends(friendsId []string, idRestaurant string) (*[]types.RatingRestaurant, error) {
-	query := `SELECT idRating ,idClient,idRestaurant,ratingType,rating,comment,createdAt  FROM rating WHERE idRestaurant=? and idClient IN (`
-	for i := 0; i < len(friendsId); i++ {
-		if i == 0 {
-			query += "?"
-		} else {
-			query += ", ?"
-		}
-	}
-	query += `)`
-
-	args := append([]interface{}{idRestaurant}, convertToInterfaceSlice(friendsId)...)
-	rows, err := s.db.Query(query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("error retrieving ratings: %v", err)
-	}
-	defer rows.Close() // Ensure rows are closed to avoid memory leaks
-	ratings := []types.RatingRestaurant{}
-	for rows.Next() {
-		var rating types.RatingRestaurant
-		err = rows.Scan(
-			&rating.IdRating,
-			&rating.IdClient,
-			&rating.IdRestaurant,
-			&rating.RatingType,
-			&rating.RatingValue,
-			&rating.Comment,
-			&rating.CreatedAt,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("error scanning rating row: %v", err)
-		}
-		ratings = append(ratings, rating)
-	}
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating over rating rows: %v", err)
-	}
-	return &ratings, nil
-}
+// func convertToInterfaceSlice(strs []string) []interface{} {
+// 	result := make([]interface{}, len(strs))
+// 	for i, s := range strs {
+// 		result[i] = s
+// 	}
+// 	return result
+// }
+//
 
 func (s *Store) GetClientIdByUsername(username string) (string, error) {
 	query := `SELECT idClient FROM client WHERE username = ?`

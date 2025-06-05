@@ -24,6 +24,7 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/reservation", h.CreateReservation).Methods("POST")
 	r.HandleFunc("/order", h.CreateOrder).Methods("POST")
 	r.HandleFunc("/friends/reviews", h.GetFriendsReviewsRestaurant).Methods("POST")
+	r.HandleFunc("/restaurant/rating", h.PostReviewRestaurant).Methods("POST")
 	r.HandleFunc("/menu/actif/{restaurantId}", h.GetAvailableMenuInformation).Methods("GET")
 
 	// r.HandleFunc("/order/add", h.AddFoodToOrder).Methods("POST")
@@ -263,6 +264,30 @@ func (h *Handler) GetRestaurantById(w http.ResponseWriter, r *http.Request) {
 // 	}
 // 	utils.WriteJson(w, http.StatusOK, restaurant)
 // }
+
+func (h *Handler) PostReviewRestaurant(w http.ResponseWriter, r *http.Request) {
+	var review types.PostRatingRestaurant
+	if err := utils.ParseJson(r, &review); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+	if review.IdClient == "" || review.IdRestaurant == "" {
+		utils.WriteError(w, http.StatusBadRequest, errors.New("idClient and idRestaurant are required"))
+		return
+	}
+	idReview, err := utils.CreateAnId()
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	review.IdRating = idReview
+	err = h.store.PostRatingRestaurant(review)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusCreated, map[string]string{"message": "Review posted successfully"})
+}
 
 func (h *Handler) GetFriendsReviewsRestaurant(w http.ResponseWriter, r *http.Request) {
 	var rating types.FriendsReviewsRestaruant

@@ -28,18 +28,19 @@ type UserStore interface {
 	CreateUser(user RegisterUser, idUser string, token string, hashedPassword string) error
 	CreateClient(idUser, idClient, username string) error
 	GetClientIdByUsername(username string) (string, error)
+    SearchUsersByUsernamePrefix(prefix string) (*[]string, error)
 	SendRequestFriend(idFriendship string, idSender string, idReceiver string) error
 	AcceptRequestFriend(idFriendship string) error
 	GetFriendshipRequested(idClient string) (*[]Friendship, error)
 	CountFollowers(idClient string) (int, error)
 	CountFollowing(idClient string) (int, error)
-    GetClientInformationUsername(username string) (*ProfilePage, error)
-    GetClientInformation(idClient string) (*ProfilePage, error)
+	GetClientInformationUsername(username string) (*ProfilePage, error)
+	GetClientInformation(idClient string) (*ProfilePage, error)
 }
 
 type ActiviteStore interface {
 	// GetActivite() (*[]Activite, error)
-    GetRecentActivities(idClient string ) (*[]ActivityProfile, error)
+	GetRecentActivities(idClient string) (*[]ActivityProfile, error)
 	GetActiviteById(id string) (*Activity, error)
 	GetActivityByTypes(typeActivite string) (*[]Activity, error)
 	GetActiviteTypes() (*[]ActivitetType, error)
@@ -47,7 +48,6 @@ type ActiviteStore interface {
 }
 
 type RestaurantStore interface {
-
 	GetRestaurantTables(restaurantId string, timeSlot time.Time) (*[]RestaurantTableStatus, error)
 	GetRestaurant() (*[]Restaurant, error)
 	GetRestaurantById(id string) (*Restaurant, error)
@@ -57,8 +57,9 @@ type RestaurantStore interface {
 	PostOrderList(orderId string, food []FoodItem) error
 	GetAvailableMenuInformation(restaurantId string) (*[]MenuInformationFood, error)
 	ReserveTable(idReservation string, reservation ReservationCreation) error
-GetFriendsOfClient(idClient string) (*[]string, error)
-GetRatingOfFriendsRestaurant(friendsId []string, idRestaurant string) (*[]RatingRestaurant, error)
+	GetFriendsOfClient(idClient string) (*[]string, error)
+	GetRatingOfFriendsRestaurant(friendsId []string, idRestaurant string) (*[]RatingRestaurant, error)
+	PostRatingRestaurant(rating PostRatingRestaurant) error
 	// GetRestaurantWorker() (*[]RestaurantWorker, error)
 	// GetRestaurantWorkerById(id string) (*RestaurantWorker, error)
 	// GetRestaurantWorkerFeedBack(id string) (*[]RestaurantWorkerFeedBack, error)

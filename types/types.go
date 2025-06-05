@@ -2,32 +2,28 @@ package types
 
 import "time"
 
-
 type UserInformation struct {
-    IdClient    string    `json:"idClient"`
-    FirstName    string    `json:"firstName"`
-	LastName     string    `json:"lastName"`
-	Email        string    `json:"email"`
-	Address      string    `json:"address"`
-	Phone        string    `json:"phone"`
-    Following int `json:"following"`
-    Followers int `json:"followers"`
-    Username string `json:"username"`
-
+	IdClient  string `json:"idClient"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+	Email     string `json:"email"`
+	Address   string `json:"address"`
+	Phone     string `json:"phone"`
+	Following int    `json:"following"`
+	Followers int    `json:"followers"`
+	Username  string `json:"username"`
 }
 
 type ProfilePage struct {
-    FirstName    string    `json:"firstName"`
-	LastName     string    `json:"lastName"`
-	Email        string    `json:"email"`
-	Address      string    `json:"address"`
-	Phone        string    `json:"phone"`
-    Following int `json:"following"`
-    Followers int `json:"followers"`
-    Username string `json:"username"`
-
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+	Email     string `json:"email"`
+	Address   string `json:"address"`
+	Phone     string `json:"phone"`
+	Following int    `json:"following"`
+	Followers int    `json:"followers"`
+	Username  string `json:"username"`
 }
-
 
 type Activity struct {
 	IdActivity     string `json:"idActivity"`
@@ -44,37 +40,37 @@ type ActivitetType struct {
 	ImageActivity    string `json:"imageActivity"`
 }
 type Restaurant struct {
-	IdRestaurant       *string `json:"idRestaurant" db:"idRestaurant"`
-	IdAdminRestaurant  *string `json:"idAdminRestaurant" db:"idAdminRestaurant"`
-	NameRestaurant     *string `json:"name" db:"name"`
-	Description        *string `json:"description" db:"description"`
-	Image              *string `json:"image" db:"image"`
-	Location           *string `json:"location" db:"location"`
-	Capacity           *int    `json:"capacity" db:"capacity"`
+	IdRestaurant      *string `json:"idRestaurant" db:"idRestaurant"`
+	IdAdminRestaurant *string `json:"idAdminRestaurant" db:"idAdminRestaurant"`
+	NameRestaurant    *string `json:"name" db:"name"`
+	Description       *string `json:"description" db:"description"`
+	Image             *string `json:"image" db:"image"`
+	Location          *string `json:"location" db:"location"`
+	Capacity          *int    `json:"capacity" db:"capacity"`
 }
 
 type RestaurantTable struct {
-	IdTable      string `json:"idTable"`
-	IdRestaurant string `json:"idRestaurant"`
-    ReservationTime time.Time `json:"reservation_time"`
-	PosX         int    `json:"posX"` // Position on UI map[jko]type
-	PosY         int    `json:"posY"`
-    Duration_minutes int `json:"duration_minutes"`
-    Is_available bool   `json:"is_available"`
+	IdTable          string    `json:"idTable"`
+	IdRestaurant     string    `json:"idRestaurant"`
+	ReservationTime  time.Time `json:"reservation_time"`
+	PosX             int       `json:"posX"` // Position on UI map[jko]type
+	PosY             int       `json:"posY"`
+	Duration_minutes int       `json:"duration_minutes"`
+	Is_available     bool      `json:"is_available"`
 }
 
 type RestaurantTableStatus struct {
-    IdTable      *string `json:"idTable"`
-    PosX         *int    `json:"posX"` 
-    PosY         *int    `json:"posY"`
-    IdReservation *string `json:"idReservation"`
-    IdRestaurant *string `json:"idRestaurant"`
-    NumberOfPeople *int `json:"numberOfPeople"`
-    TimeFrom     *time.Time `json:"timeFrom"`
-    TimeTo       *time.Time `json:"timeTo"`
-    Status      *string `json:"status"`
+	IdTable        *string    `json:"idTable"`
+	PosX           *int       `json:"posX"`
+	PosY           *int       `json:"posY"`
+	IdReservation  *string    `json:"idReservation"`
+	IdRestaurant   *string    `json:"idRestaurant"`
+	NumberOfPeople *int       `json:"numberOfPeople"`
+	TimeFrom       *time.Time `json:"timeFrom"`
+	TimeTo         *time.Time `json:"timeTo"`
+	Status         *string    `json:"status"`
 }
-    
+
 type RestaurantWorker struct {
 	IdRestaurantWorker string    `json:"idRestaurantWorker"`
 	IdRestaurant       string    `json:"idRestaurant"`
@@ -101,7 +97,7 @@ type RestaurantWorkerFeedBack struct {
 
 type Friendship struct {
 	IdFriendship string    `json:"idFriendship"`
-    Username string   `json:"username"`
+	Username     string    `json:"username"`
 	Status       string    `json:"status"`
 	CreatedAt    time.Time `json:"createdAt"`
 }
@@ -114,20 +110,20 @@ type Menu struct {
 }
 
 type MenuInformationFood struct {
-    IdMenu       string    `json:"idMenu" db:"idMenu"`
-    IdFood       string    `json:"idFood" db:"idFood"`
-    IdCategory   string    `json:"idCategory" db:"idCategory"`
-    Name         string    `json:"name" db:"name"`
-    Description  *string    `json:"description" db:"description"`
-    Image        *string    `json:"image" db:"image"`
-    Price        float64   `json:"price" db:"price"`
-    Status       string    `json:"status" db:"status"`
-    MenuName   string    `json:"menuName" db:"menuName"`
+	IdMenu      string  `json:"idMenu" db:"idMenu"`
+	IdFood      string  `json:"idFood" db:"idFood"`
+	IdCategory  string  `json:"idCategory" db:"idCategory"`
+	Name        string  `json:"name" db:"name"`
+	Description *string `json:"description" db:"description"`
+	Image       *string `json:"image" db:"image"`
+	Price       float64 `json:"price" db:"price"`
+	Status      string  `json:"status" db:"status"`
+	MenuName    string  `json:"menuName" db:"menuName"`
 }
 type Food struct {
-	IdFood      string  `json:"idFood"`
-	IdCategory  string  `json:"idCategory"`
-	IdMenu      string  `json:"idMenu"`
+	IdFood      string   `json:"idFood"`
+	IdCategory  string   `json:"idCategory"`
+	IdMenu      string   `json:"idMenu"`
 	Name        *string  `json:"name"`
 	Description *string  `json:"description"`
 	Image       *string  `json:"image"`
@@ -147,10 +143,18 @@ type Reservation struct {
 	CreatedAt       time.Time `json:"createdAt"`
 }
 
+type RatingRestaurant struct {
+	IdRating string `json:"idRating"`
+	IdClient string `json:"idClient"`
+    IdRestaurant string `json:"idRestaurant"`
+    RatingType string `json:"ratingType"` 
+    RatingValue int    `json:"rating"`
+    Comment string `json:"comment"`
+    CreatedAt time.Time `json:"createdAt"`
+}
 
-//!TODO: REMOVE THE IDRESTAURANT FROM THE ORDER
+// !TODO: REMOVE THE IDRESTAURANT FROM THE ORDER
 type Order struct {
-
 	//!NOTE: I think in this place im gonna fetch all the information about the order the quantity and the food and all
 	IdOrder       string    `json:"idOrder"`
 	IdReservation string    `json:"idReservation"`
@@ -171,12 +175,11 @@ type User struct {
 	LastLogin    time.Time `json:"lastLogin"`
 	CreatedAt    time.Time `json:"createdAt"`
 	Refreshtoken string    `json:"refreshToken"`
-    ClientId   string    `json:"idClient"`
-    Username string `json:"username"`
+	ClientId     string    `json:"idClient"`
+	Username     string    `json:"username"`
 }
 
 //
-
 
 type Product struct {
 	IdProduct      string    `json:"idProduct"`

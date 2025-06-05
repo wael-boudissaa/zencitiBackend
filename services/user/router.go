@@ -38,6 +38,7 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/auth/logout", logout).Methods("GET")
 	router.HandleFunc("/clientinformation/{idClient}", h.ClientInformation).Methods("GET")
 	router.HandleFunc("/usernameinformation/{username}", h.ClientInformationUsername).Methods("GET")
+
 	// admin
 }
 
@@ -292,3 +293,4 @@ func (h *Handler) ClientInformationUsername(w http.ResponseWriter, r *http.Reque
 
 	utils.WriteJson(w, http.StatusOK, u)
 }
+

@@ -91,3 +91,9 @@ type AcceptFriendRequest struct {
     IdFriendship string `json:"idFriendship"`
 }
 
+
+type FriendsReviewsRestaruant struct{
+    IdClient string `json:"idClient"`
+    IdRestaurant string `json:"idRestaurant"`
+
+}

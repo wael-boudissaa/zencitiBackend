@@ -29,6 +29,7 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 
 	// r.HandleFunc("/order/add", h.AddFoodToOrder).Methods("POST")
 	r.HandleFunc("/order/place", h.PostOrderClient).Methods("POST")
+	// r.HandleFunc("/orderinformation/{orderId}", h.GetOrderInformation).Methods("GET")
 
 	// r.HandleFunc("/restaurantWorker", h.GetRestaurantWorker).Methods("GET")
 	// r.HandleFunc("/restaurantWorker/{id}", h.GetRestaurantWorkerById).Methods("GET")
@@ -75,11 +76,13 @@ func (h *Handler) PostOrderClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+    log.Println("Order ID:", idOrder)
 	err = h.store.PostOrderList(idOrder, orderCreation.Foods)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
+    log.Println("Order list posted successfully")
 
 	utils.WriteJson(w, http.StatusCreated, "Success modifying price")
 }
@@ -216,6 +219,20 @@ func (h *Handler) GetRestaurantById(w http.ResponseWriter, r *http.Request) {
 	}
 	utils.WriteJson(w, http.StatusOK, restaurant)
 }
+
+// func (h *Handler) GetOrderInformation(w http.ResponseWriter, r *http.Request) {
+// 	orderId := mux.Vars(r)["orderId"]
+// 	if orderId == "" {
+// 		utils.WriteError(w, http.StatusBadRequest, errors.New("orderId is required"))
+// 		return
+// 	}
+// 	orderInfo, err := h.store.GetOrderInformation(orderId)
+// 	if err != nil {
+// 		utils.WriteError(w, http.StatusInternalServerError, err)
+// 		return
+// 	}
+// 	utils.WriteJson(w, http.StatusOK, orderInfo)
+// }
 
 // func (h *Handler) GetRestaurantWorker(w http.ResponseWriter, r *http.Request) {
 // 	restaurant, err := h.store.GetRestaurantWorker()

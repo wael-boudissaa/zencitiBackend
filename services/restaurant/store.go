@@ -60,21 +60,72 @@ where menu.active = 1 and menu.idRestaurant = ?;
 }
 
 // !NOTE: GET all restaurant
+func (s *store) CountOrderReceivedToday() (int, error) {
+	query := `SELECT COUNT(*) FROM orderList WHERE DATE(createdAt) = CURDATE()`
+	row := s.db.QueryRow(query)
+	var count int
+	err := row.Scan(&count)
+	if err != nil {
+		log.Printf("Error counting orders received today: %v", err)
+		return 0, err
+	}
+	return count, nil
+}
+
+func (s *store) CountReservationReceivedToday() (int, error) {
+	query := `SELECT COUNT(*) FROM reservation WHERE DATE(createdAt) = CURDATE()`
+	row := s.db.QueryRow(query)
+	var count int
+	err := row.Scan(&count)
+	if err != nil {
+		log.Printf("Error counting reservations received today: %v", err)
+		return 0, err
+	}
+	return count, nil
+}
+
+func (s *store) CountReservationThisMonth() (int, error) {
+	query := `SELECT COUNT(*) FROM reservation WHERE MONTH(createdAt) = MONTH(CURDATE()) AND YEAR(createdAt) = YEAR(CURDATE())`
+	row := s.db.QueryRow(query)
+	var count int
+	err := row.Scan(&count)
+	if err != nil {
+		log.Printf("Error counting reservations this month: %v", err)
+		return 0, err
+	}
+	return count, nil
+}
 
 func (s *store) PostOrderList(orderId string, foods []types.FoodItem) error {
 	var totalPrice float64
+	if len(foods) == 0 {
+		log.Println("⚠️ No foods provided for order:", orderId)
+	}
+	log.Printf("Inserting %d foods into order %s", len(foods), orderId)
 	for _, food := range foods {
-		_, err := s.db.Exec(`Insert INTO orderFood (idOrder, idFood, quantity, createdAt) VALUES (?, ?, ?, ?)`, orderId, food.IdFood, food.Quantity, time.Now())
+		res, err := s.db.Exec(`Insert INTO orderFood (idOrder, idFood, quantity, createdAt) VALUES (?, ?, ?, ?)`, orderId, food.IdFood, food.Quantity, time.Now())
 		totalPrice += food.PriceSingle * float64(food.Quantity)
 		if err != nil {
+			log.Printf("Error inserting into orderFood: %v", err)
+
+			return err
+		}
+		rowsAffected, _ := res.RowsAffected()
+		if rowsAffected == 0 {
+			log.Printf("Errior getting rows affected: %v", err)
 			return err
 		}
 
 	}
 	query := `UPDATE orderList SET totalPrice = ? WHERE idOrder = ?`
-	_, err := s.db.Exec(query, totalPrice, orderId)
+	res, err := s.db.Exec(query, totalPrice, orderId)
 	if err != nil {
+		log.Printf("Error inserting into orderFood: %v", err)
 		return err
+	}
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0 {
+		log.Printf("⚠️ No rows updated in orderList for idOrder: %s", orderId)
 	}
 	return nil
 }
@@ -351,103 +402,256 @@ func (s *store) GetFoodByMenu(id string) (*[]types.Food, error) {
 	return &foods, nil
 }
 
+func (s *store) GetReservationTodayByRestaurantId(idRestaurant string) (*[]types.Reservation, error) {
+	query := `SELECT * FROM reservation WHERE idRestaurant = ? AND DATE(createdAt) = CURDATE()`
+	rows, err := s.db.Query(query, idRestaurant)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving reservations: %v", err)
+	}
+	defer rows.Close() // Ensure rows are closed to avoid memory leaks
+	var reservations []types.Reservation
+
+	for rows.Next() {
+		var reservation types.Reservation
+		err = rows.Scan(
+			&reservation.IdReservation,
+			&reservation.IdClient,
+			&reservation.IdRestaurant,
+			&reservation.Status,
+			&reservation.Price,
+			&reservation.TimeReservation,
+			&reservation.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning reservation row: %v", err)
+		}
+		reservations = append(reservations, reservation)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over reservation rows: %v", err)
+	}
+	return &reservations, nil
+}
+
+func (s *store) GetOrderListForRestaurantToday(idRestaurant string) (*[]types.Order, error) {
+	query := `SELECT * FROM orderList WHERE idRestaurant = ? AND DATE(createdAt) = CURDATE()`
+	rows, err := s.db.Query(query, idRestaurant)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving orders: %v", err)
+	}
+	defer rows.Close() // Ensure rows are closed to avoid memory leaks
+	var orders []types.Order
+	for rows.Next() {
+		var order types.Order
+		err = rows.Scan(
+			&order.IdOrder,
+			&order.CreatedAt,
+			&order.Status,
+			&order.TotalPrice,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning order row: %v", err)
+		}
+		orders = append(orders, order)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over order rows: %v", err)
+	}
+	return &orders, nil
+}
+
+func (s *store) CountReservationUpcomingWeek(idRestaurant string) (int, error) {
+	query := `SELECT COUNT(*) FROM reservation WHERE idRestaurant = ? AND timeFrom >= CURDATE() AND timeFrom < DATE_ADD(CURDATE(), INTERVAL 7 DAY)`
+	row := s.db.QueryRow(query, idRestaurant)
+	var count int
+	err := row.Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (s *store) GetOrderListOfClientInRestaurant(idRestaurant string, idClient string) (*[]types.Order, error) {
+	query := `SELECT orderList.* FROM orderList join reservation on orderList.idReservation = reservation.idReservation WHERE reservation.idRestaurant = ? AND idClient = ?`
+	rows, err := s.db.Query(query, idRestaurant, idClient)
+	if err != nil {
+		log.Printf("Error retrieving orders for client %s in restaurant %s: %v", idClient, idRestaurant, err)
+		return nil, fmt.Errorf("error retrieving orders: %v", err)
+	}
+	defer rows.Close() // Ensure rows are closed to avoid memory leaks
+	var orders []types.Order
+	for rows.Next() {
+		var order types.Order
+		err = rows.Scan(
+			&order.IdOrder,
+			&order.CreatedAt,
+			&order.Status,
+			&order.TotalPrice,
+		)
+		if err != nil {
+			log.Printf("Error scanning order row for client %s in restaurant %s: %v", idClient, idRestaurant, err)
+			return nil, fmt.Errorf("error scanning order row: %v", err)
+		}
+		orders = append(orders, order)
+	}
+
+	if err = rows.Err(); err != nil {
+		log.Printf("Error iterating over order rows for client %s in restaurant %s: %v", idClient, idRestaurant, err)
+		return nil, fmt.Errorf("error iterating over order rows: %v", err)
+	}
+	return &orders, nil
+}
+
+// func (s *store) GetOrderInformation(idOrder string) (*[]interface{}, err) {
+// 	// query := `Select * from orderList join reservation join uj
+// 	query := `
+//     select profile.* , reservation.* , client.* , food.* from client join profile on client.idProfile = profile.idProfile
+//  join reservation on client.idClient = reservation.idClient
+// join orderList on reservation.idReservation = orderList.idReservation
+// join orderFood on orderList.idOrder = orderFood.idOrder
+// join food on food.idFood = orderFood.idFood
+// where orderList.idOrder=?
+//     `
+//     rows, err := s.db.Query(query, idOrder)
+//     if err != nil {
+//         return nil, fmt.Errorf("error retrieving order information: %v", err)
+//     }
+//     defer rows.Close() // Ensure rows are closed to avoid memory leaks
+//     var orderInfo []interface{}
+//     for rows.Next() {
+//         var profile types.Profile
+//         var reservation types.Reservation
+//         var client types.Client
+//         var food types.Food
 //
-// //NOTE: GET the reservations by the restaurants
-// func (s *store) getReservationByRestaurantId(id string) (*[]types.Reservation, error) {
-// 	query := `SELECT * FROM reservation WHERE idRestaurant = ?`
-// 	rows, err := s.db.Query(query, id)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer rows.Close() // Ensure rows are closed to avoid memory leaks
-// 	var reservations []types.Reservation
-//
-// 	for rows.Next() {
-// 		var reservation types.Reservation
-//
-// 		err = rows.Scan(
-// 			&reservation.IdReservation,
-// 			&reservation.IdClient,
-// 			&reservation.IdRestaurant,
-// 			&reservation.Status,
-// 			&reservation.Price,
-// 			&reservation.TimeReservation,
-// 			&reservation.CreatedAt,
-// 		)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		reservations = append(reservations, reservation)
-//
-// 	}
-// 	if err := rows.Err(); err != nil {
-// 		return nil, err
-// 	}
-// 	return &reservations, nil
+//         err = rows.Scan(
+//             &profile.IdProfile,
+//             &profile.FirstName,
+//             &profile.LastName,
+//             &profile.Email,
+//             &profile.PhoneNumber,
+//             &profile.Image,
+//             &reservation.IdReservation,
+//             &reservation.IdClient,
+//             &reservation.IdRestaurant,
+//             &reservation.Status,
+//             &reservation.Price,
+//             &reservation.TimeReservation,
+//             &reservation.CreatedAt,
+//             &client.IdClient,
+//             &client.Username,
+//             &food.IdFood,
+//             &food.Name,
+//             &food.Description,
+//             &food.Image,
+//             &food.Price,
+//         )
+//         if err != nil {
+//             return nil, fmt.Errorf("error scanning order information row: %v", err)
+//         }
+//         orderInfo = append(orderInfo, profile, reservation, client, food)
+//     }
 // }
+
+// //NOTE: GET the reservations by the restaurants
+//
+//	func (s *store) getReservationByRestaurantId(id string) (*[]types.Reservation, error) {
+//		query := `SELECT * FROM reservation WHERE idRestaurant = ?`
+//		rows, err := s.db.Query(query, id)
+//		if err != nil {
+//			return nil, err
+//		}
+//		defer rows.Close() // Ensure rows are closed to avoid memory leaks
+//		var reservations []types.Reservation
+//
+//		for rows.Next() {
+//			var reservation types.Reservation
+//
+//			err = rows.Scan(
+//				&reservation.IdReservation,
+//				&reservation.IdClient,
+//				&reservation.IdRestaurant,
+//				&reservation.Status,
+//				&reservation.Price,
+//				&reservation.TimeReservation,
+//				&reservation.CreatedAt,
+//			)
+//			if err != nil {
+//				return nil, err
+//			}
+//			reservations = append(reservations, reservation)
+//
+//		}
+//		if err := rows.Err(); err != nil {
+//			return nil, err
+//		}
+//		return &reservations, nil
+//	}
 //
 // // !NOTE: WE GONNE NEED ORDER LIST FOR ALL THE RESTAURANT , ORDER FOR EVERY RESERVATION , ORDER FOOD list FOR THE CLIENT , ORDER LIST FOOD
-// func (s *store) getOrderlistForRestaurant(idRestaurant string) (*[]types.Order, error) {
-// 	query := `select * from orderlist where idRestaurant = ?`
 //
-// 	rows, err := s.db.Query(query, idRestaurant)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+//	func (s *store) getOrderlistForRestaurant(idRestaurant string) (*[]types.Order, error) {
+//		query := `select * from orderlist where idRestaurant = ?`
 //
-// 	defer rows.Close()
+//		rows, err := s.db.Query(query, idRestaurant)
+//		if err != nil {
+//			return nil, err
+//		}
 //
-// 	var orders []types.Order
-// 	for rows.Next() {
-// 		var order types.Order
-// 		err = rows.Scan(
-// 			&order.IdOrder,
-// 			&order.CreatedAt,
-// 			&order.Status,
-// 			&order.TotalPrice,
-// 		)
+//		defer rows.Close()
 //
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		orders = append(orders, order)
-// 	}
-// 	if err := rows.Err(); err != nil {
-// 		return nil, err
-// 	}
-// 	return &orders, nil
-// }
+//		var orders []types.Order
+//		for rows.Next() {
+//			var order types.Order
+//			err = rows.Scan(
+//				&order.IdOrder,
+//				&order.CreatedAt,
+//				&order.Status,
+//				&order.TotalPrice,
+//			)
+//
+//			if err != nil {
+//				return nil, err
+//			}
+//			orders = append(orders, order)
+//		}
+//		if err := rows.Err(); err != nil {
+//			return nil, err
+//		}
+//		return &orders, nil
+//	}
 //
 // //!NOTE: Get order for each client history
-// func (s *store) getOrderByClient(idClient string) (*[]types.Order, error) {
-// 	query := `select * from orderlist join restaurant where idClient = ?`
-//
-// 	rows, err := s.db.Query(query, idClient)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer rows.Close()
-//
-// 	var orders []types.Order
-// 	for rows.Next() {
-// 		var order types.Order
-// 		err = rows.Scan(
-// 			&order.IdOrder,
-// 			&order.CreatedAt,
-// 			&order.Status,
-// 			&order.TotalPrice,
-// 		)
-//
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		orders = append(orders, order)
-// 	}
-// 	if err := rows.Err(); err != nil {
-// 		return nil, err
-// 	}
-// 	return &orders, nil
-// }
+func (s *store) getOrderByClient(idClient string) (*[]types.Order, error) {
+	query := `select * from orderlist join restaurant where idClient = ?`
+
+	rows, err := s.db.Query(query, idClient)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var orders []types.Order
+	for rows.Next() {
+		var order types.Order
+		err = rows.Scan(
+			&order.IdOrder,
+			&order.CreatedAt,
+			&order.Status,
+			&order.TotalPrice,
+		)
+		if err != nil {
+			return nil, err
+		}
+		orders = append(orders, order)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return &orders, nil
+}
+
 // //!NOTE :Food list ofr the client
 // func(s *store) getFoodByOrder(idOrder string) (*[]types.Food , error) {
 //     query := `select * from orderFood join food join foodCategory where idOrder = ?`

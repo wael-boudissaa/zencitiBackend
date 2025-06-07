@@ -46,7 +46,7 @@ type GetRestaurantTable struct {
 
 type OrderCreation struct {
 	IdReservation string     `json:"idReservation"`
-	Foods         []FoodItem `json:"foods"`
+	Foods         []FoodItem `json:"food"`
 }
 
 type FoodItem struct {

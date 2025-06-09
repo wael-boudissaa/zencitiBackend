@@ -60,9 +60,9 @@ where menu.active = 1 and menu.idRestaurant = ?;
 }
 
 // !NOTE: GET all restaurant
-func (s *store) CountOrderReceivedToday() (int, error) {
-	query := `SELECT COUNT(*) FROM orderList WHERE DATE(createdAt) = CURDATE()`
-	row := s.db.QueryRow(query)
+func (s *store) CountOrderReceivedToday(idRestaurant string) (int, error) {
+	query := `SELECT COUNT(*) FROM orderList join reservation on orderList.idReservation=reservation.idReservation WHERE DATE(orderList.createdAt) = CURDATE() and reservation.idRestaurant = ?`
+	row := s.db.QueryRow(query, idRestaurant)
 	var count int
 	err := row.Scan(&count)
 	if err != nil {
@@ -72,9 +72,9 @@ func (s *store) CountOrderReceivedToday() (int, error) {
 	return count, nil
 }
 
-func (s *store) CountReservationReceivedToday() (int, error) {
-	query := `SELECT COUNT(*) FROM reservation WHERE DATE(createdAt) = CURDATE()`
-	row := s.db.QueryRow(query)
+func (s *store) CountReservationReceivedToday(idRestaurant string) (int, error) {
+	query := `SELECT COUNT(*) FROM reservation WHERE DATE(reservation.createdAt) = CURDATE() and idRestaurant = ?`
+	row := s.db.QueryRow(query, idRestaurant)
 	var count int
 	err := row.Scan(&count)
 	if err != nil {
@@ -402,25 +402,27 @@ func (s *store) GetFoodByMenu(id string) (*[]types.Food, error) {
 	return &foods, nil
 }
 
-func (s *store) GetReservationTodayByRestaurantId(idRestaurant string) (*[]types.Reservation, error) {
-	query := `SELECT * FROM reservation WHERE idRestaurant = ? AND DATE(createdAt) = CURDATE()`
+func (s *store) GetReservationTodayByRestaurantId(idRestaurant string) (*[]types.ReservationListInformation, error) {
+	query := `SELECT profile.firstName,profile.lastName,profile.email,profile.address,reservation.numberOfPeople ,reservation.status FROM
+    reservation join client on reservation.idClient=client.idClient
+    join profile on profile.idProfile=client.idProfile
+    WHERE idRestaurant = ? AND DATE(reservation.createdAt) = CURDATE()`
 	rows, err := s.db.Query(query, idRestaurant)
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving reservations: %v", err)
 	}
 	defer rows.Close() // Ensure rows are closed to avoid memory leaks
-	var reservations []types.Reservation
+	var reservations []types.ReservationListInformation
 
 	for rows.Next() {
-		var reservation types.Reservation
+		var reservation types.ReservationListInformation
 		err = rows.Scan(
-			&reservation.IdReservation,
-			&reservation.IdClient,
-			&reservation.IdRestaurant,
+			&reservation.FirstName,
+			&reservation.LastName,
+			&reservation.Email,
+			&reservation.Address,
+			&reservation.NumberOfPeople,
 			&reservation.Status,
-			&reservation.Price,
-			&reservation.TimeReservation,
-			&reservation.CreatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning reservation row: %v", err)
@@ -470,6 +472,46 @@ func (s *store) CountReservationUpcomingWeek(idRestaurant string) (int, error) {
 		return 0, err
 	}
 	return count, nil
+}
+
+func (s *store) CountReservationLastMonth(idRestaurant string) (*[]types.ReservationStats, error) {
+	query := `
+    SELECT 
+    DATE(timeFrom) AS day,
+    COUNT(*) AS reservations 
+FROM reservation 
+WHERE 
+    idRestaurant = ? 
+    AND MONTH(timeFrom) = MONTH(CURDATE()) 
+    AND YEAR(timeFrom) = YEAR(CURDATE()) 
+GROUP BY DATE(timeFrom)
+ORDER BY day ASC;
+
+    `
+	rows, err := s.db.Query(query, idRestaurant)
+	if err != nil {
+		log.Printf("Error counting reservations last month for restaurant %s: %v", idRestaurant, err)
+		return nil, fmt.Errorf("error counting reservations: %v", err)
+	}
+	defer rows.Close() // Ensure rows are closed to avoid memory leaks
+	var reservations []types.ReservationStats
+	for rows.Next() {
+		var reservation types.ReservationStats
+		err = rows.Scan(
+			&reservation.Date,
+			&reservation.NumberOfReservations,
+		)
+		if err != nil {
+			log.Printf("Error scanning reservation stats row for restaurant %s: %v", idRestaurant, err)
+			return nil, fmt.Errorf("error scanning reservation stats row: %v", err)
+		}
+		reservations = append(reservations, reservation)
+	}
+	if err = rows.Err(); err != nil {
+		log.Printf("Error iterating over reservation stats rows for restaurant %s: %v", idRestaurant, err)
+		return nil, fmt.Errorf("error iterating over reservation stats rows: %v", err)
+	}
+	return &reservations, nil
 }
 
 func (s *store) GetOrderListOfClientInRestaurant(idRestaurant string, idClient string) (*[]types.Order, error) {

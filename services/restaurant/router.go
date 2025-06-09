@@ -26,19 +26,64 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/friends/reviews", h.GetFriendsReviewsRestaurant).Methods("POST")
 	r.HandleFunc("/restaurant/rating", h.PostReviewRestaurant).Methods("POST")
 	r.HandleFunc("/menu/actif/{restaurantId}", h.GetAvailableMenuInformation).Methods("GET")
+	r.HandleFunc("/reservation/month/{restaurantId}", h.GetReservationMonthStats).Methods("GET")
+	r.HandleFunc("/restaurant/count/{restaurantId}", h.RestaurantCountInformation).Methods("GET")
 
 	// r.HandleFunc("/order/add", h.AddFoodToOrder).Methods("POST")
+
 	r.HandleFunc("/order/place", h.PostOrderClient).Methods("POST")
 	// r.HandleFunc("/orderinformation/{orderId}", h.GetOrderInformation).Methods("GET")
 
 	// r.HandleFunc("/restaurantWorker", h.GetRestaurantWorker).Methods("GET")
 	// r.HandleFunc("/restaurantWorker/{id}", h.GetRestaurantWorkerById).Methods("GET")
 	// r.HandleFunc("/restaurantWorker/{id}/feedback", h.GetRestaurantWorkerFeedback).Methods("GET")
-	// r.HandleFunc("/reservation", h.GetReservation).Methods("GET")
+	r.HandleFunc("/reservation/today/{restaurantId}", h.GetReservationToday).Methods("GET")
 	// r.HandleFunc("/reservation/{id}", h.GetReservationById).Methods("GET")
 	r.HandleFunc("/restaurant/tables", h.GetRestaurantTables).Methods("POST")
 	r.HandleFunc("/food/{menuId}", h.GetFoodByMenu).Methods("GET")
 	// r.HandleFunc("/restauran/tables/status", h.GetStatusTables).Methods("GET")
+}
+
+func (h *Handler) GetReservationMonthStats(w http.ResponseWriter, r *http.Request) {
+	restaurantId := mux.Vars(r)["restaurantId"]
+	if restaurantId == "" {
+		utils.WriteError(w, http.StatusBadRequest, errors.New("restaurantId is required"))
+		return
+	}
+	countNumberOfReservation, err := h.store.CountReservationLastMonth(restaurantId)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if countNumberOfReservation == nil {
+		utils.WriteJson(w, http.StatusOK, []types.ReservationStats{})
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, countNumberOfReservation)
+}
+
+func (h *Handler) RestaurantCountInformation(w http.ResponseWriter, r *http.Request) {
+	restaurantId := mux.Vars(r)["restaurantId"]
+	if restaurantId == "" {
+		utils.WriteError(w, http.StatusBadRequest, errors.New("restaurantId is required"))
+		return
+	}
+	countNumberofReservation, err := h.store.CountReservationReceivedToday(restaurantId)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	countNumberOfOrders, err := h.store.CountOrderReceivedToday(restaurantId)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	result := map[string]int{
+		"numberReservation": countNumberofReservation,
+		"numberOrders":      countNumberOfOrders,
+	}
+	utils.WriteJson(w, http.StatusOK, result)
 }
 
 func (h *Handler) GetAvailableMenuInformation(w http.ResponseWriter, r *http.Request) {
@@ -76,13 +121,13 @@ func (h *Handler) PostOrderClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    log.Println("Order ID:", idOrder)
+	log.Println("Order ID:", idOrder)
 	err = h.store.PostOrderList(idOrder, orderCreation.Foods)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
-    log.Println("Order list posted successfully")
+	log.Println("Order list posted successfully")
 
 	utils.WriteJson(w, http.StatusCreated, "Success modifying price")
 }
@@ -218,6 +263,20 @@ func (h *Handler) GetRestaurantById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	utils.WriteJson(w, http.StatusOK, restaurant)
+}
+
+func (h *Handler) GetReservationToday(w http.ResponseWriter, r *http.Request) {
+	restaurantId := mux.Vars(r)["restaurantId"]
+	if restaurantId == "" {
+		utils.WriteError(w, http.StatusBadRequest, errors.New("restaurantId is required"))
+		return
+	}
+	reservations, err := h.store.GetReservationTodayByRestaurantId(restaurantId)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, reservations)
 }
 
 // func (h *Handler) GetOrderInformation(w http.ResponseWriter, r *http.Request) {

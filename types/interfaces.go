@@ -28,7 +28,7 @@ type UserStore interface {
 	CreateUser(user RegisterUser, idUser string, token string, hashedPassword string) error
 	CreateClient(idUser, idClient, username string) error
 	GetClientIdByUsername(username string) (string, error)
-    SearchUsersByUsernamePrefix(prefix string) (*[]string, error)
+	SearchUsersByUsernamePrefix(prefix string) (*[]string, error)
 	SendRequestFriend(idFriendship string, idSender string, idReceiver string) error
 	AcceptRequestFriend(idFriendship string) error
 	GetFriendshipRequested(idClient string) (*[]Friendship, error)
@@ -53,8 +53,13 @@ type RestaurantStore interface {
 	GetRestaurantById(id string) (*Restaurant, error)
 	CreateReservation(idReservation string, reservation ReservationCreation) error
 	CreateOrder(idOrder string, order OrderCreation) error
+	GetReservationTodayByRestaurantId(idRestaurant string) (*[]ReservationListInformation, error)
 	AddFoodToOrder(food AddFoodToOrder) error
 	PostOrderList(orderId string, food []FoodItem) error
+	CountReservationUpcomingWeek(idRestaurant string) (int, error)
+    CountReservationLastMonth(idRestaurant string) (*[]ReservationStats, error)
+	CountOrderReceivedToday(idRestaurant string) (int, error)
+	CountReservationReceivedToday(idRestaurant string) (int, error)
 	GetAvailableMenuInformation(restaurantId string) (*[]MenuInformationFood, error)
 	ReserveTable(idReservation string, reservation ReservationCreation) error
 	GetFriendsOfClient(idClient string) (*[]string, error)

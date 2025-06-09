@@ -132,15 +132,31 @@ type Food struct {
 }
 
 //!WARNING:: THERE SHOULD BE A GENEARL THING ON THE RESERVATION FOR THE RESTAURANT AND THE ACITIVITE AND ALSO FOR THE RATING AND FEEDBACK
+type ReservationListInformation struct {
+    FirstName  string `json:"firstName"`
+    LastName   string `json:"lastName"`
+    Email     string `json:"email"`
+    NumberOfPeople int    `json:"numberOfPeople"`
+    Address   string `json:"address"`
+    Status   string `json:"status"`
+}
+
+type ReservationStats struct { 
+    Date          time.Time `json:"day"`
+    NumberOfReservations int       `json:"reservations"`
+}
 
 type Reservation struct {
 	IdReservation   string    `json:"idReservation"`
 	IdClient        string    `json:"idClient"`
 	IdRestaurant    string    `json:"idRestaurant"`
+    IdTable         string    `json:"idTable"`
 	Status          string    `json:"status"`
-	Price           float64   `json:"price"`
-	TimeReservation time.Time `json:"timeReservation"`
+    NumberOfPeople int       `json:"numberOfPeople"`
 	CreatedAt       time.Time `json:"createdAt"`
+    TimeFrom       time.Time `json:"timeFrom"`
+    TimeTo         time.Time `json:"timeTo"`
+    ConfirmedByAdminRestaurant *string `json:"confirmedByAdminRestaurant"`
 }
 type PostRatingRestaurant struct {
 	IdRating     string    `json:"idRating"`

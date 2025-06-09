@@ -8,6 +8,7 @@ type UserLogin struct {
 	Password string `json:"password"`
 }
 
+
 type ActivityProfile struct {
     IdActivity    string    `json:"idActivity"`
     NameActivity  string    `json:"nameActivity"`

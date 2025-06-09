@@ -98,3 +98,14 @@ type FriendsReviewsRestaruant struct{
     IdRestaurant string `json:"idRestaurant"`
 
 }
+type TimeNotAvaialable struct { 
+    IdActivity    string    `json:"idActivity"`
+    Day string    `json:"day"`
+}
+
+type ActivityCreation struct { 
+    IdClient      string    `json:"idClient"`
+    IdActivity    string    `json:"idActivity"`
+    TimeActivity      time.Time `json:"timeActivity"`
+
+}

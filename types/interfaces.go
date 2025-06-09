@@ -44,6 +44,8 @@ type ActiviteStore interface {
 	GetActiviteById(id string) (*Activity, error)
 	GetActivityByTypes(typeActivite string) (*[]Activity, error)
 	GetActiviteTypes() (*[]ActivitetType, error)
+    CreateActivityClient(idClientActivity string, act ActivityCreation)(error)
+    GetActivityNotAvaialableAtday(day time.Time, idActivity string) ([]string, error)
 	GetPopularActivities() (*[]Activity, error)
 }
 

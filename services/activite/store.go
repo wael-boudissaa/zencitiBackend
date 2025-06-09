@@ -2,6 +2,7 @@ package activite
 
 import (
 	"database/sql"
+	"time"
 
 	"github.com/wael-boudissaa/zencitiBackend/types"
 )
@@ -42,6 +43,45 @@ func NewStore(db *sql.DB) *Store {
 // }
 //
 
+func (s *Store) CreateActivityClient(idClientActivity string, act types.ActivityCreation) error {
+	query := `INSERT INTO clientActivity (idClientActivity,idClient, idActivity, timeActivity,status) VALUES (?,?, ?, ?,?)`
+	_, err := s.db.Exec(query, idClientActivity, act.IdClient, act.IdActivity, act.TimeActivity, "pending")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Store) GetActivityNotAvaialableAtday(day time.Time, idActivity string) ([]string, error) {
+    query := `
+        SELECT 
+            TIME(timeActivity) as reservedTime
+        FROM 
+            clientActivity
+        WHERE
+            status = 'pending'
+            AND DATE(timeActivity) = ?
+            AND idActivity = ?
+    ;`
+    rows, err := s.db.Query(query, day.Format("2006-01-02"), idActivity)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var reservedTimes []string
+    for rows.Next() {
+        var t string
+        if err := rows.Scan(&t); err != nil {
+            return nil, err
+        }
+        reservedTimes = append(reservedTimes, t)
+    }
+    if err := rows.Err(); err != nil {
+        return nil, err
+    }
+    return reservedTimes, nil
+}
 func (s *Store) GetRecentActivities(idClient string) (*[]types.ActivityProfile, error) {
 	query := `SELECT
     activity.idActivity,activity.nameActivity,activity.descriptionActivity,activity.imageActivity,activity.popularity,clientActivity.timeActivity

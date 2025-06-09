@@ -3,6 +3,7 @@ package activite
 import (
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/wael-boudissaa/zencitiBackend/types"
@@ -19,14 +20,37 @@ func NewHandler(s types.ActiviteStore) *Handler {
 
 func (h *Handler) RegisterRouter(r *mux.Router) {
 	// r.HandleFunc("/activite", h.GetActivite).Methods("GET")
-	r.HandleFunc("/activite/single/{id}", h.GetActiviteById).Methods("GET")
+	r.HandleFunc("/activity/single/{id}", h.GetActiviteById).Methods("GET")
+	r.HandleFunc("/activity/create", h.CreateActivite).Methods("POST")
 	r.HandleFunc("/activity/populaire", h.GetPopulaireActivity).Methods("GET")
 	r.HandleFunc("/activity/recent/{idClient}", h.GetRecentActivite).Methods("GET")
 	r.HandleFunc("/activity/type/{type}", h.GetActiviteByType).Methods("GET")
 	r.HandleFunc("/activity/type", h.GetActiviteTypes).Methods("GET")
+	r.HandleFunc("/activity/notAvailable", h.GetActivityNotAvaialbaleAtday).Methods("POST")
 }
 
-//	func (h *Handler) GetActivite(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetActivityNotAvaialbaleAtday(w http.ResponseWriter, r *http.Request) {
+	var req types.TimeNotAvaialable
+	if err := utils.ParseJson(r, &req); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+	day, err := time.Parse("2006-01-02", req.Day)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+	log.Println("Day received:", req.Day)
+	reservedTimes, err := h.store.GetActivityNotAvaialableAtday(day, req.IdActivity)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	// Convert []*time.Time to []string in "15:04" format (HH:MM)
+
+	utils.WriteJson(w, http.StatusOK, reservedTimes)
+} //	func (h *Handler) GetActivite(w http.ResponseWriter, r *http.Request) {
 //		activite, err := h.store.GetActivite()
 //		if err != nil {
 //			utils.WriteError(w, http.StatusBadRequest, err)
@@ -120,4 +144,23 @@ func (h *Handler) GetPopulaireActivity(w http.ResponseWriter, r *http.Request) {
 	// }
 
 	utils.WriteJson(w, http.StatusOK, activite)
+}
+
+func (h *Handler) CreateActivite(w http.ResponseWriter, r *http.Request) {
+	var activity types.ActivityCreation
+	if err := utils.ParseJson(r, &activity); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+	idClientActivity, err := utils.CreateAnId()
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+	}
+
+	if err := h.store.CreateActivityClient(idClientActivity, activity); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusCreated, idClientActivity)
 }

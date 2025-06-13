@@ -2,6 +2,15 @@ package types
 
 import "time"
 
+type Profile struct {
+	IdProfile string `json:"idProfile"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+	Email     string `json:"email"`
+	Address   string `json:"address"`
+	Phone     string `json:"phone"`
+}
+
 type UserInformation struct {
 	IdClient  string `json:"idClient"`
 	FirstName string `json:"firstName"`
@@ -131,47 +140,81 @@ type Food struct {
 	Status      *string  `json:"status"`
 }
 
-//!WARNING:: THERE SHOULD BE A GENEARL THING ON THE RESERVATION FOR THE RESTAURANT AND THE ACITIVITE AND ALSO FOR THE RATING AND FEEDBACK
+// !WARNING:: THERE SHOULD BE A GENEARL THING ON THE RESERVATION FOR THE RESTAURANT AND THE ACITIVITE AND ALSO FOR THE RATING AND FEEDBACK
 type ReservationListInformation struct {
-    FirstName  string `json:"firstName"`
-    LastName   string `json:"lastName"`
-    Email     string `json:"email"`
-    NumberOfPeople int    `json:"numberOfPeople"`
-    Address   string `json:"address"`
-    Status   string `json:"status"`
+	FirstName      string `json:"firstName"`
+	LastName       string `json:"lastName"`
+	Email          string `json:"email"`
+	NumberOfPeople int    `json:"numberOfPeople"`
+	Address        string `json:"address"`
+	Status         string `json:"status"`
 }
 
-type ReservationStats struct { 
-    Date          time.Time `json:"day"`
-    NumberOfReservations int       `json:"reservations"`
+type ReservationStats struct {
+	Date                 time.Time `json:"day"`
+	NumberOfReservations int       `json:"reservations"`
+}
+
+type OrderDetails struct {
+	IdOrder    string                `json:"idOrder"`
+	CreatedAt  time.Time             `json:"createdAt"`
+	Status     string                `json:"status"`
+	FoodItems  []FoodItemInformation `json:"foodItems"`
+	TotalPrice float64               `json:"totalPrice"`
+}
+type RecentOrder struct {
+	IdOrder   string `json:"idOrder"`
+	FirstName string `json:"firstName"`
+    IdClient string `json:"idClient"`
+	LastName   string    `json:"lastName"`
+	CreatedAt  time.Time `json:"createdAt"`
+	ItemCount  int       `json:"itemCount"`
+	TotalPrice float64   `json:"totalPrice"`
+	Status     string    `json:"status"`
 }
 
 type Reservation struct {
-	IdReservation   string    `json:"idReservation"`
-	IdClient        string    `json:"idClient"`
-	IdRestaurant    string    `json:"idRestaurant"`
-    IdTable         string    `json:"idTable"`
-	Status          string    `json:"status"`
-    NumberOfPeople int       `json:"numberOfPeople"`
-	CreatedAt       time.Time `json:"createdAt"`
-    TimeFrom       time.Time `json:"timeFrom"`
-    TimeTo         time.Time `json:"timeTo"`
-    ConfirmedByAdminRestaurant *string `json:"confirmedByAdminRestaurant"`
+	IdReservation              string    `json:"idReservation"`
+	IdClient                   string    `json:"idClient"`
+	IdRestaurant               string    `json:"idRestaurant"`
+	IdTable                    string    `json:"idTable"`
+	Status                     string    `json:"status"`
+	NumberOfPeople             int       `json:"numberOfPeople"`
+	CreatedAt                  time.Time `json:"createdAt"`
+	TimeFrom                   time.Time `json:"timeFrom"`
+	TimeTo                     time.Time `json:"timeTo"`
+	ConfirmedByAdminRestaurant *string   `json:"confirmedByAdminRestaurant"`
+}
+
+type ReservationDetails struct {
+	IdReservation  string    `json:"idReservation"`
+	Status         string    `json:"status"`
+	IdRestaurant   string    `json:"idRestaurant"`
+	CreatedAt      time.Time `json:"createdAt"`
+	NumberOfPeople int       `json:"numberOfPeople"`
 }
 type PostRatingRestaurant struct {
-	IdRating     string    `json:"idRating"`
-	IdClient     string    `json:"idClient"`
-	IdRestaurant string    `json:"idRestaurant"`
-	RatingValue  int       `json:"rating"`
-	Comment      string    `json:"comment"`
+	IdRating     string `json:"idRating"`
+	IdClient     string `json:"idClient"`
+	IdRestaurant string `json:"idRestaurant"`
+	RatingValue  int    `json:"rating"`
+	Comment      string `json:"comment"`
 }
 
 type RatingRestaurant struct {
-    FirstName    string    `json:"firstName"`
-    LastName     string    `json:"lastName"`
-	RatingValue  int       `json:"rating"`
-	Comment      string    `json:"comment"`
-	CreatedAt    time.Time `json:"createdAt"`
+	FirstName   string    `json:"firstName"`
+	LastName    string    `json:"lastName"`
+	RatingValue int       `json:"rating"`
+	Comment     string    `json:"comment"`
+	CreatedAt   time.Time `json:"createdAt"`
+}
+
+type ClientDetails struct {
+	Profile        Profile
+	Orders         []OrderDetails
+	TotalSpent     float64
+	TotalOrders    int
+	FirstOrderDate *time.Time
 }
 
 // !TODO: REMOVE THE IDRESTAURANT FROM THE ORDER

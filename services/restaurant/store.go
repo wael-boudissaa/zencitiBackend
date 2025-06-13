@@ -889,3 +889,155 @@ FROM (
 	}
 	return &ratings, nil
 }
+
+func (s *store) GetRecentOrders(idRestaurant string, limit int) ([]types.RecentOrder, error) {
+	query := `SELECT orderList.idOrder, profile.firstName, profile.lastName, orderList.createdAt,client.idClient ,
+		COUNT(orderFood.idFood) AS itemCount, orderList.totalPrice, orderList.status 
+		FROM orderList 
+		JOIN reservation ON orderList.idReservation = reservation.idReservation 
+		JOIN client ON reservation.idClient = client.idClient 
+		JOIN profile ON client.idProfile = profile.idProfile 
+		JOIN orderFood ON orderList.idOrder = orderFood.idOrder 
+		WHERE reservation.idRestaurant = ? 
+		GROUP BY orderList.idOrder 
+		ORDER BY orderList.createdAt DESC 
+		LIMIT ?`
+
+	rows, err := s.db.Query(query, idRestaurant, limit)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving recent orders: %v", err)
+	}
+	defer rows.Close()
+
+	var recentOrders []types.RecentOrder
+	for rows.Next() {
+		var order types.RecentOrder
+		if err := rows.Scan(&order.IdOrder, &order.FirstName, &order.LastName, &order.CreatedAt, &order.IdClient, &order.ItemCount, &order.TotalPrice, &order.Status); err != nil {
+			return nil, fmt.Errorf("error scanning recent order: %v", err)
+		}
+		recentOrders = append(recentOrders, order)
+	}
+
+	return recentOrders, nil
+}
+
+func (s *store) GetOrderStatsByHourAndStatus(idRestaurant string) (map[int]int, map[string]int, error) {
+	queryHour := `SELECT HOUR(orderList.createdAt) AS hour, COUNT(*) AS count FROM orderList join reservation on orderList.idReservation=reservation.idReservation WHERE reservation.idRestaurant = ? GROUP BY HOUR(createdAt)`
+	queryStatus := `SELECT orderList.status, COUNT(*) AS count FROM orderList join reservation on orderList.idReservation=reservation.idReservation WHERE idRestaurant = ? GROUP BY status`
+
+	rowsHour, err := s.db.Query(queryHour, idRestaurant)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error retrieving order stats by hour: %v", err)
+	}
+	defer rowsHour.Close()
+
+	orderCountByHour := make(map[int]int)
+	for rowsHour.Next() {
+		var hour, count int
+		if err := rowsHour.Scan(&hour, &count); err != nil {
+			return nil, nil, fmt.Errorf("error scanning order stats by hour: %v", err)
+		}
+		orderCountByHour[hour] = count
+	}
+
+	// Order count by status
+	rowsStatus, err := s.db.Query(queryStatus, idRestaurant)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error retrieving order stats by status: %v", err)
+	}
+	defer rowsStatus.Close()
+
+	orderCountByStatus := make(map[string]int)
+	for rowsStatus.Next() {
+		var status string
+		var count int
+		if err := rowsStatus.Scan(&status, &count); err != nil {
+			return nil, nil, fmt.Errorf("error scanning order stats by status: %v", err)
+		}
+		orderCountByStatus[status] = count
+	}
+
+	return orderCountByHour, orderCountByStatus, nil
+}
+func (s *store) GetClientReservationAndOrderDetails(idClient string) (*types.ClientDetails, error) {
+	queryProfile := `SELECT profile.idProfile, profile.firstName, profile.lastName, profile.email, profile.phoneNumber, profile.address 
+		FROM client 
+		JOIN profile ON client.idProfile = profile.idProfile 
+		WHERE client.idClient = ?`
+	queryOrders := `SELECT orderList.idOrder, orderList.totalPrice, orderList.createdAt, orderList.status, food.name, food.price, orderFood.quantity 
+		FROM orderList 
+        join reservation ON orderList.idReservation = reservation.idReservation
+		JOIN orderFood ON orderList.idOrder = orderFood.idOrder 
+		JOIN food ON orderFood.idFood = food.idFood 
+		WHERE reservation.idClient = ? 
+        ORDER BY orderList.createdAt DESC`
+
+	row := s.db.QueryRow(queryProfile, idClient)
+	var profile types.Profile
+	if err := row.Scan(&profile.IdProfile, &profile.FirstName, &profile.LastName, &profile.Email, &profile.Phone, &profile.Address); err != nil {
+		return nil, fmt.Errorf("error retrieving client profile: %v", err)
+	}
+
+	rowsOrders, err := s.db.Query(queryOrders, idClient)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving orders: %v", err)
+	}
+	defer rowsOrders.Close()
+
+	var orders []types.OrderDetails
+	var totalSpent float64
+	var totalOrders int
+	var firstOrderDate *time.Time
+
+	orderMap := make(map[string]*types.OrderDetails)
+	var orderIDs []string
+
+	for rowsOrders.Next() {
+		var idOrder string
+		var totalPrice float64
+		var createdAt time.Time
+		var status string
+		var foodName string
+		var foodPrice float64
+		var quantity int
+
+		if err := rowsOrders.Scan(&idOrder, &totalPrice, &createdAt, &status, &foodName, &foodPrice, &quantity); err != nil {
+			return nil, fmt.Errorf("error scanning order details: %v", err)
+		}
+
+		if firstOrderDate == nil {
+			firstOrderDate = &createdAt
+		}
+
+		if _, exists := orderMap[idOrder]; !exists {
+			orderMap[idOrder] = &types.OrderDetails{
+				IdOrder:    idOrder,
+				TotalPrice: totalPrice,
+				CreatedAt:  createdAt,
+				Status:     status,
+				FoodItems:  []types.FoodItemInformation{},
+			}
+			orderIDs = append(orderIDs, idOrder)
+			totalOrders++
+			totalSpent += totalPrice
+		}
+
+		orderMap[idOrder].FoodItems = append(orderMap[idOrder].FoodItems, types.FoodItemInformation{
+			Name:     foodName,
+			Price:    foodPrice,
+			Quantity: quantity,
+		})
+	}
+
+	for _, id := range orderIDs {
+		orders = append(orders, *orderMap[id])
+	}
+
+	return &types.ClientDetails{
+		Profile:        profile,
+		Orders:         orders,
+		TotalOrders:    totalOrders,
+		TotalSpent:     totalSpent,
+		FirstOrderDate: firstOrderDate,
+	}, nil
+}

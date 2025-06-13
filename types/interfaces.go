@@ -51,6 +51,7 @@ type ActiviteStore interface {
 
 type RestaurantStore interface {
 	GetRestaurantTables(restaurantId string, timeSlot time.Time) (*[]RestaurantTableStatus, error)
+    GetRecentOrders(idRestaurant string, limit int) ([]RecentOrder, error)
 	GetRestaurant() (*[]Restaurant, error)
 	GetRestaurantById(id string) (*Restaurant, error)
 	CreateReservation(idReservation string, reservation ReservationCreation) error
@@ -67,6 +68,8 @@ type RestaurantStore interface {
 	GetFriendsOfClient(idClient string) (*[]string, error)
 	GetRatingOfFriendsRestaurant(friendsId []string, idRestaurant string) (*[]RatingRestaurant, error)
 	PostRatingRestaurant(rating PostRatingRestaurant) error
+    GetOrderStatsByHourAndStatus(idRestaurant string) (map[int]int, map[string]int, error)
+    GetClientReservationAndOrderDetails(idClient string) (*ClientDetails, error)
 	// GetRestaurantWorker() (*[]RestaurantWorker, error)
 	// GetRestaurantWorkerById(id string) (*RestaurantWorker, error)
 	// GetRestaurantWorkerFeedBack(id string) (*[]RestaurantWorkerFeedBack, error)

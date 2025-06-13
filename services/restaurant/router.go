@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/wael-boudissaa/zencitiBackend/types"
@@ -28,6 +29,8 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/menu/actif/{restaurantId}", h.GetAvailableMenuInformation).Methods("GET")
 	r.HandleFunc("/reservation/month/{restaurantId}", h.GetReservationMonthStats).Methods("GET")
 	r.HandleFunc("/restaurant/count/{restaurantId}", h.RestaurantCountInformation).Methods("GET")
+	r.HandleFunc("/wael/{restaurantId}", h.GetOrderStats).Methods("GET")
+	r.HandleFunc("/waela/{clientId}", h.GetClientInf).Methods("GEt")
 
 	// r.HandleFunc("/order/add", h.AddFoodToOrder).Methods("POST")
 
@@ -42,6 +45,69 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/restaurant/tables", h.GetRestaurantTables).Methods("POST")
 	r.HandleFunc("/food/{menuId}", h.GetFoodByMenu).Methods("GET")
 	// r.HandleFunc("/restauran/tables/status", h.GetStatusTables).Methods("GET")
+}
+
+func (h *Handler) GetClientInf(w http.ResponseWriter, r *http.Request) {
+	clientId := mux.Vars(r)["clientId"]
+	if clientId == "" {
+		utils.WriteError(w, http.StatusBadRequest, errors.New("clientId is required"))
+		return
+	}
+	clientDetails, err := h.store.GetClientReservationAndOrderDetails(clientId)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if clientDetails == nil {
+		utils.WriteJson(w, http.StatusOK, map[string]interface{}{
+			"profile":      types.Profile{},
+			"reservations": []types.ReservationDetails{},
+			"orders":       []types.OrderDetails{},
+			"totalSpent":   0.0,
+		})
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, clientDetails)
+}
+
+func (h *Handler) GetOrderStats(w http.ResponseWriter, r *http.Request) {
+	restaurantId := mux.Vars(r)["restaurantId"]
+	if restaurantId == "" {
+		utils.WriteError(w, http.StatusBadRequest, errors.New("restaurantId is required"))
+		return
+	}
+
+	// Fetch order stats
+	orderStatsByHour, orderStatsByStatus, err := h.store.GetOrderStatsByHourAndStatus(restaurantId)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	// Fetch recent orders
+	limitStr := r.URL.Query().Get("limit")
+	limit := 10 // Default limit
+	if limitStr != "" {
+		parsedLimit, err := strconv.Atoi(limitStr)
+		if err != nil || parsedLimit <= 0 {
+			utils.WriteError(w, http.StatusBadRequest, errors.New("invalid limit parameter"))
+			return
+		}
+		limit = parsedLimit
+	}
+
+	recentOrders, err := h.store.GetRecentOrders(restaurantId, limit)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	// Combine stats and recent orders in the response
+	utils.WriteJson(w, http.StatusOK, map[string]interface{}{
+		"hourlyStats":  orderStatsByHour,
+		"statusStats":  orderStatsByStatus,
+		"recentOrders": recentOrders,
+	})
 }
 
 func (h *Handler) GetReservationMonthStats(w http.ResponseWriter, r *http.Request) {

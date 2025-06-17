@@ -18,6 +18,47 @@ func NewStore(db *sql.DB) *Store {
 	return &Store{db: db}
 }
 
+func (s *Store) GetAdminByEmail(email string) (*types.User, error) {
+	query := `SELECT 
+	  profile.idProfile AS profileId,
+	  profile.firstName,
+	  profile.lastName,
+	  profile.email,
+	  profile.password,
+	  profile.createdAt,
+	  profile.refreshToken,
+	  profile.type,
+	  profile.address,
+	  profile.lastLogin,
+	  profile.phoneNumber
+	FROM profile 
+	WHERE profile.email = ?`
+
+	row := s.db.QueryRow(query, email)
+
+	u := new(types.User)
+	err := row.Scan(
+		&u.Id,
+		&u.FirstName,
+		&u.LastName,
+		&u.Email,
+		&u.Password,
+		&u.CreatedAt,
+		&u.Refreshtoken,
+		&u.Type,
+		&u.Address,
+		&u.LastLogin,
+		&u.Phone,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil // User not found, return nil without error
+	} else if err != nil {
+		return nil, err // Other error
+	}
+
+	return u, nil
+}
+
 func (s *Store) GetUserByEmail(email string) (*types.User, error) {
 	query := `SELECT 
 	  profile.idProfile AS profileId,
@@ -341,16 +382,31 @@ func (s *Store) GetUserById(user types.User) (*types.User, error) {
 	return u, nil
 }
 
-func (s *Store) CreateUser(user types.RegisterUser, idUser string, token string, hashedPassword string) error {
-	query := `INSERT INTO profile (idProfile, firstName, lastName, email, password, address,createdAt,lastLogin, refreshToken, type,phoneNumber)
-			  VALUES (?, ?, ?, ?, ?,?,?,?,?, ?,?)`
+func (s *Store) CreateUser(user interface{}, idUser string, token string, hashedPassword string) error {
+	switch u := user.(type) {
+	case types.RegisterUser:
+		query := `INSERT INTO profile (idProfile, firstName, lastName, email, password, address, createdAt, lastLogin, refreshToken, type, phoneNumber)
+		          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
-	_, err := s.db.Exec(query, idUser, user.FirstName, user.LastName, user.Email, hashedPassword, user.Address, time.Now(), time.Now(), token, user.Type, user.Phone)
-	if err != nil {
-		return fmt.Errorf("error creating user: %v", err)
+		_, err := s.db.Exec(query, idUser, u.FirstName, u.LastName, u.Email, hashedPassword, u.Address, time.Now(), time.Now(), token, u.Type, u.Phone)
+		if err != nil {
+			return fmt.Errorf("error creating user: %v", err)
+		}
+		return nil
+
+	case types.RegisterAdmin:
+		query := `INSERT INTO profile (idProfile, firstName, lastName, email, password, address, createdAt, lastLogin, refreshToken, type, phoneNumber)
+		          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+		_, err := s.db.Exec(query, idUser, u.FirstName, u.LastName, u.Email, hashedPassword, u.Address, time.Now(), time.Now(), token, u.Type, u.Phone)
+		if err != nil {
+			return fmt.Errorf("error creating admin: %v", err)
+		}
+		return nil
+
+	default:
+		return fmt.Errorf("unsupported user type: %T", u)
 	}
-
-	return nil
 }
 
 func (s *Store) CreateClient(idUser string, idClient string, username string) error {
@@ -384,4 +440,31 @@ func scanRowsIntoUser(rows *sql.Rows) (*types.User, error) {
 		return nil, err
 	}
 	return user, nil
+}
+
+func (s *Store) CreateAdminRestaurant(idUser string, idAdminRestaurant string) error {
+	query := `INSERT INTO adminRestaurant (idAdminRestaurant, idProfile) VALUES (?, ?)`
+	_, err := s.db.Exec(query, idAdminRestaurant, idUser)
+	if err != nil {
+		return fmt.Errorf("error creating restaurant admin: %v", err)
+	}
+	return nil
+}
+
+func (s *Store) CreateAdminActivity(idUser string, idAdminActivity string) error {
+	query := `INSERT INTO adminActivity (idRestaurant, idProfile) VALUES (?, ?)`
+	_, err := s.db.Exec(query, idAdminActivity, idUser)
+	if err != nil {
+		return fmt.Errorf("error creating restaurant admin: %v", err)
+	}
+	return nil
+}
+
+func (s *Store) UpdateRestaurantAdmin(idRestaurant string, idAdminRestaurant string) error {
+	query := `UPDATE restaurant SET idAdminRestaurant = ? WHERE idRestaurant = ?`
+	_, err := s.db.Exec(query, idAdminRestaurant, idRestaurant)
+	if err != nil {
+		return fmt.Errorf("error updating restaurant admin: %v", err)
+	}
+	return nil
 }

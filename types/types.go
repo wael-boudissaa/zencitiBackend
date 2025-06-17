@@ -168,6 +168,7 @@ type RecentOrder struct {
     IdClient string `json:"idClient"`
 	LastName   string    `json:"lastName"`
 	CreatedAt  time.Time `json:"createdAt"`
+    TimeFrom   time.Time `json:"timeFrom"`
 	ItemCount  int       `json:"itemCount"`
 	TotalPrice float64   `json:"totalPrice"`
 	Status     string    `json:"status"`

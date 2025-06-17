@@ -24,8 +24,9 @@ type FeedBackStore interface {
 }
 type UserStore interface {
 	GetUserByEmail(email string) (*User, error)
+    GetAdminByEmail(email string) (*User, error)
 	GetUserById(user User) (*User, error)
-	CreateUser(user RegisterUser, idUser string, token string, hashedPassword string) error
+	CreateUser(user interface{}, idUser string, token string, hashedPassword string) error
 	CreateClient(idUser, idClient, username string) error
 	GetClientIdByUsername(username string) (string, error)
 	SearchUsersByUsernamePrefix(prefix string) (*[]string, error)
@@ -36,6 +37,9 @@ type UserStore interface {
 	CountFollowing(idClient string) (int, error)
 	GetClientInformationUsername(username string) (*ProfilePage, error)
 	GetClientInformation(idClient string) (*ProfilePage, error)
+    CreateAdminRestaurant(idUser string, idAdminRestaurant string) error
+    UpdateRestaurantAdmin(idRestaurant string, idAdminRestaurant string) error
+    CreateAdminActivity(idUser string, idAdminRestaurant string) error
 }
 
 type ActiviteStore interface {

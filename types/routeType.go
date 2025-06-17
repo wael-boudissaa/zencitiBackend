@@ -31,6 +31,18 @@ type RegisterUser struct {
     UserName string `json:"username"`
 }
 
+type RegisterAdmin struct{ 
+	Email     string `json:"email"`
+	Password  string `json:"password"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Gender    string `json:"gender"`
+	Address   string `json:"address"`
+	Type      string `json:"type"`
+	Phone     string `json:"phone_number"`
+    IdActivitie string `json:"idActivitie"`
+}
+
 type ReservationCreation struct {
 	IdClient       string     `json:"idClient"`
 	IdRestaurant   string     `json:"idRestaurant"`

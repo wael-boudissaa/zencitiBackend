@@ -42,7 +42,7 @@ func WriteJson(r http.ResponseWriter, status int, v any) error {
 }
 
 func WriteError(w http.ResponseWriter, status int, err error) {
-	WriteJson(w, status, map[string]string{"error": err.Error()})
+	WriteJson(w, status, err.Error())
 }
 
 func LogMiddleware(next http.Handler) http.Handler {

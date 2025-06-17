@@ -131,11 +131,39 @@ func (s *store) PostOrderList(orderId string, foods []types.FoodItem) error {
 }
 
 func (s *store) CreateReservation(idReservation string, reservation types.ReservationCreation) error {
-	query := `INSERT INTO reservation (idReservation, idClient, idRestaurant, idTable, status, createdAt, numberOfPeople, timeFrom, timeTo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	_, err := s.db.Exec(query, idReservation, reservation.IdClient, reservation.IdRestaurant, reservation.TableId, "pending", time.Now(), reservation.NumberOfPeople, reservation.TimeFrom, time.Now().Add(time.Hour*2))
+	date := reservation.TimeFrom.Format("2006-01-02")
+	checkQuery := `SELECT COUNT(*) FROM reservation WHERE idClient = ? AND DATE(timeFrom) = ?`
+	var count int
+	err := s.db.QueryRow(checkQuery, reservation.IdClient, date).Scan(&count)
 	if err != nil {
 		return err
 	}
+	if count > 0 {
+		return fmt.Errorf("You already has a reservation on %s", date)
+	}
+
+	// Insert reservation
+	query := `
+		INSERT INTO reservation (
+			idReservation, idClient, idRestaurant, idTable,
+			status, createdAt, numberOfPeople, timeFrom, timeTo
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+	_, err = s.db.Exec(query,
+		idReservation,
+		reservation.IdClient,
+		reservation.IdRestaurant,
+		reservation.TableId,
+		"pending",
+		time.Now(),
+		reservation.NumberOfPeople,
+		reservation.TimeFrom,
+		reservation.TimeFrom.Add(time.Hour*2),
+	)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -891,7 +919,7 @@ FROM (
 }
 
 func (s *store) GetRecentOrders(idRestaurant string, limit int) ([]types.RecentOrder, error) {
-	query := `SELECT orderList.idOrder, profile.firstName, profile.lastName, orderList.createdAt,client.idClient ,
+	query := `SELECT orderList.idOrder, profile.firstName, profile.lastName, orderList.createdAt,client.idClient ,reservation.timeFrom,
 		COUNT(orderFood.idFood) AS itemCount, orderList.totalPrice, orderList.status 
 		FROM orderList 
 		JOIN reservation ON orderList.idReservation = reservation.idReservation 
@@ -912,7 +940,7 @@ func (s *store) GetRecentOrders(idRestaurant string, limit int) ([]types.RecentO
 	var recentOrders []types.RecentOrder
 	for rows.Next() {
 		var order types.RecentOrder
-		if err := rows.Scan(&order.IdOrder, &order.FirstName, &order.LastName, &order.CreatedAt, &order.IdClient, &order.ItemCount, &order.TotalPrice, &order.Status); err != nil {
+		if err := rows.Scan(&order.IdOrder, &order.FirstName, &order.LastName, &order.CreatedAt, &order.IdClient, &order.TimeFrom, &order.ItemCount, &order.TotalPrice, &order.Status); err != nil {
 			return nil, fmt.Errorf("error scanning recent order: %v", err)
 		}
 		recentOrders = append(recentOrders, order)
@@ -959,6 +987,7 @@ func (s *store) GetOrderStatsByHourAndStatus(idRestaurant string) (map[int]int, 
 
 	return orderCountByHour, orderCountByStatus, nil
 }
+
 func (s *store) GetClientReservationAndOrderDetails(idClient string) (*types.ClientDetails, error) {
 	queryProfile := `SELECT profile.idProfile, profile.firstName, profile.lastName, profile.email, profile.phoneNumber, profile.address 
 		FROM client 

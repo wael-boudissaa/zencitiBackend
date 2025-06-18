@@ -24,7 +24,7 @@ type FeedBackStore interface {
 }
 type UserStore interface {
 	GetUserByEmail(email string) (*User, error)
-    GetAdminByEmail(email string) (*User, error)
+    GetAdminByEmail(email string) (*UserAdmin, error)
 	GetUserById(user User) (*User, error)
 	CreateUser(user interface{}, idUser string, token string, hashedPassword string) error
 	CreateClient(idUser, idClient, username string) error
@@ -38,6 +38,7 @@ type UserStore interface {
 	GetClientInformationUsername(username string) (*ProfilePage, error)
 	GetClientInformation(idClient string) (*ProfilePage, error)
     CreateAdminRestaurant(idUser string, idAdminRestaurant string) error
+
     UpdateRestaurantAdmin(idRestaurant string, idAdminRestaurant string) error
     CreateAdminActivity(idUser string, idAdminRestaurant string) error
 }
@@ -59,12 +60,14 @@ type RestaurantStore interface {
 	GetRestaurant() (*[]Restaurant, error)
 	GetRestaurantById(id string) (*Restaurant, error)
 	CreateReservation(idReservation string, reservation ReservationCreation) error
+    GetRecentReviews(idRestaurant string) ([]*Rating, error)
 	CreateOrder(idOrder string, order OrderCreation) error
 	GetReservationTodayByRestaurantId(idRestaurant string) (*[]ReservationListInformation, error)
 	AddFoodToOrder(food AddFoodToOrder) error
 	PostOrderList(orderId string, food []FoodItem) error
 	CountReservationUpcomingWeek(idRestaurant string) (int, error)
     CountReservationLastMonth(idRestaurant string) (*[]ReservationStats, error)
+    GetRestaurantWorker(idRestaurant string) (*[]RestaurantWorker, error)
 	CountOrderReceivedToday(idRestaurant string) (int, error)
 	CountReservationReceivedToday(idRestaurant string) (int, error)
 	GetAvailableMenuInformation(restaurantId string) (*[]MenuInformationFood, error)

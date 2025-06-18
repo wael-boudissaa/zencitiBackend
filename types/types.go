@@ -163,12 +163,12 @@ type OrderDetails struct {
 	TotalPrice float64               `json:"totalPrice"`
 }
 type RecentOrder struct {
-	IdOrder   string `json:"idOrder"`
-	FirstName string `json:"firstName"`
-    IdClient string `json:"idClient"`
+	IdOrder    string    `json:"idOrder"`
+	FirstName  string    `json:"firstName"`
+	IdClient   string    `json:"idClient"`
 	LastName   string    `json:"lastName"`
 	CreatedAt  time.Time `json:"createdAt"`
-    TimeFrom   time.Time `json:"timeFrom"`
+	TimeFrom   time.Time `json:"timeFrom"`
 	ItemCount  int       `json:"itemCount"`
 	TotalPrice float64   `json:"totalPrice"`
 	Status     string    `json:"status"`
@@ -227,6 +227,21 @@ type Order struct {
 	Status        string    `json:"status"`
 	CreatedAt     time.Time `json:"createdAt"`
 }
+type UserAdmin struct {
+	Id           string    `json:"idProfile"`
+	FirstName    string    `json:"firstName"`
+	LastName     string    `json:"lastName"`
+	Type         string    `json:"type"`
+	Email        string    `json:"email"`
+	Address      string    `json:"address"`
+    Password     string    `json:"password"`
+	Phone        string    `json:"phone"`
+	LastLogin    time.Time `json:"lastLogin"`
+	CreatedAt    time.Time `json:"createdAt"`
+    IdRestaurant string    `json:"idRestaurant"`
+    IdAdminRestaurant string    `json:"idAdminRestaurant"`
+}
+
 
 type User struct {
 	Id           string    `json:"idProfile"`
@@ -285,3 +300,13 @@ type FeedBack struct {
 	Comment    string `json:"comment"`
 	CreatedAt  string `json:"createdAt"`
 }
+
+
+type Rating struct {
+    FirstName   string    `json:"firstName"`
+    LastName    string    `json:"lastName"`
+    Comment     string    `json:"comment"`
+    RatingValue int       `json:"rating"`
+    CreatedAt   time.Time `json:"createdAt"`
+}
+

@@ -18,37 +18,41 @@ func NewStore(db *sql.DB) *Store {
 	return &Store{db: db}
 }
 
-func (s *Store) GetAdminByEmail(email string) (*types.User, error) {
+func (s *Store) GetAdminByEmail(email string) (*types.UserAdmin, error) {
 	query := `SELECT 
 	  profile.idProfile AS profileId,
 	  profile.firstName,
 	  profile.lastName,
 	  profile.email,
-	  profile.password,
 	  profile.createdAt,
-	  profile.refreshToken,
 	  profile.type,
 	  profile.address,
+      profile.password,
 	  profile.lastLogin,
-	  profile.phoneNumber
+	  profile.phoneNumber,
+      adminRestaurant.idAdminRestaurant,
+      restaurant.idRestaurant
 	FROM profile 
+    join adminRestaurant ON profile.idProfile = adminRestaurant.idProfile
+    join restaurant ON adminRestaurant.idAdminRestaurant = restaurant.idAdminRestaurant
 	WHERE profile.email = ?`
 
 	row := s.db.QueryRow(query, email)
 
-	u := new(types.User)
+	u := new(types.UserAdmin)
 	err := row.Scan(
 		&u.Id,
 		&u.FirstName,
 		&u.LastName,
 		&u.Email,
-		&u.Password,
 		&u.CreatedAt,
-		&u.Refreshtoken,
 		&u.Type,
 		&u.Address,
+		&u.Password,
 		&u.LastLogin,
 		&u.Phone,
+		&u.IdAdminRestaurant,
+		&u.IdRestaurant,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil // User not found, return nil without error

@@ -76,6 +76,7 @@ func (h *Handler) loginRestaurant(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
+
 	utils.WriteJson(w, http.StatusOK, map[string]interface{}{"token": token, "user": u})
 }
 
@@ -182,6 +183,7 @@ func (h *Handler) loginUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) signUpUser(w http.ResponseWriter, r *http.Request) {
+	//!TODO: CHANGE THE TYPE SHOULD BE FIXED IN THE BACKEND NOT THE FRONT
 	var user types.RegisterUser
 
 	if err := utils.ParseJson(r, &user); err != nil {

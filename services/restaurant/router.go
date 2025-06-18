@@ -22,6 +22,7 @@ func NewHandler(s types.RestaurantStore) *Handler {
 func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/restaurant", h.GetRestaurant).Methods("GET")
 	r.HandleFunc("/restaurant/{id}", h.GetRestaurantById).Methods("GET")
+	r.HandleFunc("/reviews/{idRestaurant}", h.GetRecentReviewsRestaurant).Methods("GET")
 	r.HandleFunc("/reservation", h.CreateReservation).Methods("POST")
 	r.HandleFunc("/order", h.CreateOrder).Methods("POST")
 	r.HandleFunc("/friends/reviews", h.GetFriendsReviewsRestaurant).Methods("POST")
@@ -29,6 +30,7 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/menu/actif/{restaurantId}", h.GetAvailableMenuInformation).Methods("GET")
 	r.HandleFunc("/reservation/month/{restaurantId}", h.GetReservationMonthStats).Methods("GET")
 	r.HandleFunc("/restaurant/count/{restaurantId}", h.RestaurantCountInformation).Methods("GET")
+	r.HandleFunc("/restaurant/workers/{idRestaurant}", h.GetRestaurantWorker).Methods("GET")
 	r.HandleFunc("/wael/{restaurantId}", h.GetOrderStats).Methods("GET")
 	r.HandleFunc("/waela/{clientId}", h.GetClientInf).Methods("GEt")
 
@@ -45,6 +47,43 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/restaurant/tables", h.GetRestaurantTables).Methods("POST")
 	r.HandleFunc("/food/{menuId}", h.GetFoodByMenu).Methods("GET")
 	// r.HandleFunc("/restauran/tables/status", h.GetStatusTables).Methods("GET")
+}
+
+// GetRecentReviewsRestaurant retrieves recent reviews for a specific restaurant.
+func (h *Handler) GetRestaurantWorker(w http.ResponseWriter, r *http.Request) {
+    restaurantId := mux.Vars(r)["idRestaurant"]
+    if restaurantId == "" {
+        utils.WriteError(w, http.StatusBadRequest, errors.New("restaurantId is required"))
+        return
+    }
+    workers, err := h.store.GetRestaurantWorker(restaurantId)
+    if err != nil {
+        utils.WriteError(w, http.StatusInternalServerError, err)
+        return
+    }
+    if workers == nil {
+        utils.WriteJson(w, http.StatusOK, []types.RestaurantWorker{})
+        return
+    }
+    utils.WriteJson(w, http.StatusOK, workers)
+}
+
+func (h *Handler) GetRecentReviewsRestaurant(w http.ResponseWriter, r *http.Request) {
+	restaurantId := mux.Vars(r)["idRestaurant"]
+	if restaurantId == "" {
+		utils.WriteError(w, http.StatusBadRequest, errors.New("restaurantId is required"))
+		return
+	}
+	recentReviews, err := h.store.GetRecentReviews(restaurantId)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if recentReviews == nil {
+		utils.WriteJson(w, http.StatusOK, []types.Rating{})
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, recentReviews)
 }
 
 func (h *Handler) GetClientInf(w http.ResponseWriter, r *http.Request) {

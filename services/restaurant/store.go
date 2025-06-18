@@ -918,6 +918,74 @@ FROM (
 	return &ratings, nil
 }
 
+func (s *store) GetRestaurantWorker(idRestaurant string) (*[]types.RestaurantWorker, error) {
+	query := `SELECT idRestaurantWorker,firstName,lastName,email,phoneNumber,quote,startWorking,nationnallity ,nativeLanguage,rating , address ,status FROM restaurantWorkers WHERE idRestaurant = ?`
+	rows, err := s.db.Query(query, idRestaurant)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving restaurant workers: %v", err)
+	}
+	defer rows.Close() // Ensure rows are closed to avoid memory leaks
+	var workers []types.RestaurantWorker
+	for rows.Next() {
+		var worker types.RestaurantWorker
+		err = rows.Scan(
+            &worker.IdRestaurantWorker,
+            &worker.FirstName,
+            &worker.LastName,
+            &worker.Email,
+            &worker.PhoneNumber,
+            &worker.Quote,
+            &worker.StartWorking,
+            &worker.Nationnallity,
+            &worker.NativeLanguage,
+            &worker.Rating,
+            &worker.Address,
+            &worker.Status,
+            
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning restaurant worker row: %v", err)
+		}
+		workers = append(workers, worker)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over restaurant worker rows: %v", err)
+	}
+	return &workers, nil
+}
+
+func (s *store) GetRecentReviews(idRestaurant string) ([]*types.Rating, error) {
+	query := `select
+    rating.comment,rating.rating,rating.createdAt,profile.firstName,profile.lastName
+    from rating join client on rating.idClient = client.idClient join profile
+    on profile.idProfile = client.idProfile where idRestaurant=? and
+    ratingType="restaurant" order by createdAt desc limit 5`
+	rows, err := s.db.Query(query, idRestaurant)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving recent reviews: %v", err)
+	}
+	defer rows.Close()
+	var reviews []*types.Rating
+	for rows.Next() {
+		var review types.Rating
+		err = rows.Scan(
+			&review.Comment,
+			&review.RatingValue,
+			&review.CreatedAt,
+			&review.FirstName,
+			&review.LastName,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning recent review: %v", err)
+		}
+		reviews = append(reviews, &review)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over recent review rows: %v", err)
+	}
+	return reviews, nil
+}
+
 func (s *store) GetRecentOrders(idRestaurant string, limit int) ([]types.RecentOrder, error) {
 	query := `SELECT orderList.idOrder, profile.firstName, profile.lastName, orderList.createdAt,client.idClient ,reservation.timeFrom,
 		COUNT(orderFood.idFood) AS itemCount, orderList.totalPrice, orderList.status 

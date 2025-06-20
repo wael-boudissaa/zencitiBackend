@@ -55,6 +55,9 @@ type ActiviteStore interface {
 }
 
 type RestaurantStore interface {
+    GetRestaurantByIdProfile(idProfile string) (*UserAdmin, error)
+    GetRestaurantRatingStats(idRestaurant string) (*RestaurantRatingStats, error)
+    GetReservationStatsAndList(idRestaurant string) (*ReservationStatsAndList, error)
 	GetRestaurantTables(restaurantId string, timeSlot time.Time) (*[]RestaurantTableStatus, error)
     GetRecentOrders(idRestaurant string, limit int) ([]RecentOrder, error)
 	GetRestaurant() (*[]Restaurant, error)

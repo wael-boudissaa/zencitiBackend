@@ -228,21 +228,36 @@ type Order struct {
 	CreatedAt     time.Time `json:"createdAt"`
 }
 type UserAdmin struct {
-	Id           string    `json:"idProfile"`
-	FirstName    string    `json:"firstName"`
-	LastName     string    `json:"lastName"`
-	Type         string    `json:"type"`
-	Email        string    `json:"email"`
-	Address      string    `json:"address"`
-    Password     string    `json:"password"`
-	Phone        string    `json:"phone"`
-	LastLogin    time.Time `json:"lastLogin"`
-	CreatedAt    time.Time `json:"createdAt"`
-    IdRestaurant string    `json:"idRestaurant"`
-    IdAdminRestaurant string    `json:"idAdminRestaurant"`
+	Id                string    `json:"idProfile"`
+	FirstName         string    `json:"firstName"`
+	LastName          string    `json:"lastName"`
+	Type              string    `json:"type"`
+	Email             string    `json:"email"`
+	Address           string    `json:"address"`
+	Password          string    `json:"password"`
+	Phone             string    `json:"phone"`
+	LastLogin         time.Time `json:"lastLogin"`
+	CreatedAt         time.Time `json:"createdAt"`
+	IdRestaurant      string    `json:"idRestaurant"`
+	IdAdminRestaurant string    `json:"idAdminRestaurant"`
 }
 
-
+type RestaurantRatingStats struct {
+	MonthlyStats     []MonthlyRatingStats `json:"monthlyStats"`
+	OverallAverage   float64              `json:"overallAverage"`
+	TotalRatings     int                  `json:"totalRatings"`
+	Percentage5Stars float64              `json:"percentage5Stars"`
+	Percentage4Stars float64              `json:"percentage4Stars"`
+	Percentage3Stars float64              `json:"percentage3Stars"`
+	Percentage2Stars float64              `json:"percentage2Stars"`
+	Percentage1Star  float64              `json:"percentage1Star"`
+}
+type MonthlyRatingStats struct {
+	Month         int     `json:"month"`
+	Year          int     `json:"year"`
+	AverageRating float64 `json:"averageRating"`
+	TotalRatings  int     `json:"totalRatings"`
+}
 type User struct {
 	Id           string    `json:"idProfile"`
 	FirstName    string    `json:"firstName"`
@@ -301,12 +316,25 @@ type FeedBack struct {
 	CreatedAt  string `json:"createdAt"`
 }
 
-
 type Rating struct {
-    FirstName   string    `json:"firstName"`
-    LastName    string    `json:"lastName"`
-    Comment     string    `json:"comment"`
-    RatingValue int       `json:"rating"`
-    CreatedAt   time.Time `json:"createdAt"`
+	FirstName   string    `json:"firstName"`
+	LastName    string    `json:"lastName"`
+	Comment     string    `json:"comment"`
+	RatingValue int       `json:"rating"`
+	CreatedAt   time.Time `json:"createdAt"`
 }
 
+type ReservationDetailsR struct {
+	FirstName      string    `json:"firstName"`
+	LastName       string    `json:"lastName"`
+	TimeFrom       time.Time `json:"timeFrom"`
+	NumberOfPeople int       `json:"numberOfPeople"`
+}
+
+type ReservationStatsAndList struct {
+	TotalToday           int                   `json:"totalToday"`
+	UpcomingReservation  int                   `json:"upcomingReservation"`
+	ConfirmedRate        int                   `json:"confirmedRate"`
+	TodayReservations    []ReservationDetailsR `json:"todayReservations"`
+	UpcomingReservations []ReservationDetailsR `json:"upcomingReservations"`
+}

@@ -19,6 +19,49 @@ func NewStore(db *sql.DB) *store {
 	return &store{db: db}
 }
 
+func (s *store) GetRestaurantByIdProfile(idProfile string) (*types.UserAdmin, error) {
+	query := `SELECT 
+	  profile.idProfile AS profileId,
+	  profile.firstName,
+	  profile.lastName,
+	  profile.email,
+	  profile.createdAt,
+	  profile.type,
+	  profile.address,
+	  profile.lastLogin,
+	  profile.phoneNumber,
+      adminRestaurant.idAdminRestaurant,
+      restaurant.idRestaurant
+	FROM profile 
+    join adminRestaurant ON profile.idProfile = adminRestaurant.idProfile
+    join restaurant ON adminRestaurant.idAdminRestaurant = restaurant.idAdminRestaurant
+	WHERE profile.idProfile = ?`
+	row := s.db.QueryRow(query, idProfile)
+	var rest types.UserAdmin
+	err := row.Scan(
+		&rest.Id,
+		&rest.FirstName,
+		&rest.LastName,
+		&rest.Email,
+		&rest.CreatedAt,
+		&rest.Type,
+		&rest.Address,
+		&rest.LastLogin,
+		&rest.Phone,
+		&rest.IdAdminRestaurant,
+		&rest.IdRestaurant,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Printf("No restaurant found for profile ID %s", idProfile)
+			return nil, nil // Return nil if no restaurant is found
+		}
+		log.Printf("Error retrieving restaurant by profile ID %s: %v", idProfile, err)
+		return nil, fmt.Errorf("error retrieving restaurant by profile ID: %v", err)
+	}
+	return &rest, nil
+}
+
 func (s *store) GetAvailableMenuInformation(restaurantId string) (*[]types.MenuInformationFood, error) {
 	query := `
 SELECT food.*,menu.name as menuName
@@ -929,19 +972,18 @@ func (s *store) GetRestaurantWorker(idRestaurant string) (*[]types.RestaurantWor
 	for rows.Next() {
 		var worker types.RestaurantWorker
 		err = rows.Scan(
-            &worker.IdRestaurantWorker,
-            &worker.FirstName,
-            &worker.LastName,
-            &worker.Email,
-            &worker.PhoneNumber,
-            &worker.Quote,
-            &worker.StartWorking,
-            &worker.Nationnallity,
-            &worker.NativeLanguage,
-            &worker.Rating,
-            &worker.Address,
-            &worker.Status,
-            
+			&worker.IdRestaurantWorker,
+			&worker.FirstName,
+			&worker.LastName,
+			&worker.Email,
+			&worker.PhoneNumber,
+			&worker.Quote,
+			&worker.StartWorking,
+			&worker.Nationnallity,
+			&worker.NativeLanguage,
+			&worker.Rating,
+			&worker.Address,
+			&worker.Status,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning restaurant worker row: %v", err)
@@ -1136,5 +1178,160 @@ func (s *store) GetClientReservationAndOrderDetails(idClient string) (*types.Cli
 		TotalOrders:    totalOrders,
 		TotalSpent:     totalSpent,
 		FirstOrderDate: firstOrderDate,
+	}, nil
+}
+
+func (s *store) GetRestaurantRatingStats(idRestaurant string) (*types.RestaurantRatingStats, error) {
+	// 1. Monthly stats (average, count by month)
+	monthlyQuery := `
+        SELECT 
+            MONTH(createdAt) AS month,
+            YEAR(createdAt) AS year,
+            AVG(rating) AS averageRating,
+            COUNT(*) AS totalRatings
+        FROM rating
+        WHERE idRestaurant = ?
+        GROUP BY YEAR(createdAt), MONTH(createdAt)
+        ORDER BY year, month
+    `
+	rows, err := s.db.Query(monthlyQuery, idRestaurant)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving restaurant monthly rating stats: %v", err)
+	}
+	defer rows.Close()
+
+	var stats []types.MonthlyRatingStats
+
+	for rows.Next() {
+		var stat types.MonthlyRatingStats
+		err = rows.Scan(
+			&stat.Month,
+			&stat.Year,
+			&stat.AverageRating,
+			&stat.TotalRatings,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning monthly rating stats row: %v", err)
+		}
+		stats = append(stats, stat)
+	}
+
+	// 2. Overall stats (global averages, percentages)
+	overallQuery := `
+        SELECT 
+            AVG(rating) AS overallAverage,
+            COUNT(*) AS totalRatings,
+            SUM(CASE WHEN rating = 5 THEN 1 ELSE 0 END) AS count5Stars,
+            SUM(CASE WHEN rating = 4 THEN 1 ELSE 0 END) AS count4Stars,
+            SUM(CASE WHEN rating = 3 THEN 1 ELSE 0 END) AS count3Stars,
+            SUM(CASE WHEN rating = 2 THEN 1 ELSE 0 END) AS count2Stars,
+            SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END) AS count1Star
+        FROM rating
+        WHERE idRestaurant = ?
+    `
+	var overallAverage float64
+	var totalRatings, count5Stars, count4Stars, count3Stars, count2Stars, count1Star int
+
+	err = s.db.QueryRow(overallQuery, idRestaurant).Scan(
+		&overallAverage,
+		&totalRatings,
+		&count5Stars,
+		&count4Stars,
+		&count3Stars,
+		&count2Stars,
+		&count1Star,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving restaurant overall rating stats: %v", err)
+	}
+
+	percent := func(count int) float64 {
+		if totalRatings == 0 {
+			return 0
+		}
+		return float64(count) * 100 / float64(totalRatings)
+	}
+
+	return &types.RestaurantRatingStats{
+		MonthlyStats:     stats,
+		OverallAverage:   overallAverage,
+		TotalRatings:     totalRatings,
+		Percentage5Stars: percent(count5Stars),
+		Percentage4Stars: percent(count4Stars),
+		Percentage3Stars: percent(count3Stars),
+		Percentage2Stars: percent(count2Stars),
+		Percentage1Star:  percent(count1Star),
+	}, nil
+}
+func (s *store) GetReservationStatsAndList(idRestaurant string) (*types.ReservationStatsAndList, error) {
+	// Stats query: use ROUND and NULLIF to avoid decimal scan issues and division by zero
+	queryStats := `
+		SELECT 
+			(SELECT COUNT(*) FROM reservation WHERE DATE(createdAt) = CURDATE() AND idRestaurant = ?) AS totalToday,
+			(SELECT COUNT(*) FROM reservation WHERE timeFrom > CURDATE() AND idRestaurant = ?) AS upcomingReservations,
+			(SELECT IFNULL(ROUND((SELECT COUNT(*) FROM reservation WHERE status = 'confirmed' AND idRestaurant = ?) * 100.0 / NULLIF((SELECT COUNT(*) FROM reservation WHERE idRestaurant = ?), 0)),0)) AS confirmedRate
+	`
+	var totalToday, upcomingReservations, confirmedRate int
+	err := s.db.QueryRow(queryStats, idRestaurant, idRestaurant, idRestaurant, idRestaurant).Scan(&totalToday, &upcomingReservations, &confirmedRate)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving reservation stats: %v", err)
+	}
+
+	// Query for today's reservations
+	queryToday := `
+		SELECT profile.firstName, profile.lastName, reservation.timeFrom, reservation.numberOfPeople
+		FROM reservation
+		JOIN client ON reservation.idClient = client.idClient
+		JOIN profile ON client.idProfile = profile.idProfile
+		WHERE DATE(reservation.createdAt) = CURDATE() AND reservation.idRestaurant = ?
+	`
+	rowsToday, err := s.db.Query(queryToday, idRestaurant)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving today's reservations: %v", err)
+	}
+	defer rowsToday.Close()
+
+	var todayReservations []types.ReservationDetailsR
+	for rowsToday.Next() {
+		var reservation types.ReservationDetailsR
+		err = rowsToday.Scan(&reservation.FirstName, &reservation.LastName, &reservation.TimeFrom, &reservation.NumberOfPeople)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning today's reservation row: %v", err)
+		}
+		todayReservations = append(todayReservations, reservation)
+	}
+
+	// Query for upcoming reservations (limit 4)
+	queryUpcoming := `
+		SELECT profile.firstName, profile.lastName, reservation.timeFrom, reservation.numberOfPeople
+		FROM reservation
+		JOIN client ON reservation.idClient = client.idClient
+		JOIN profile ON client.idProfile = profile.idProfile
+		WHERE reservation.timeFrom > CURDATE() AND reservation.idRestaurant = ?
+		ORDER BY reservation.timeFrom ASC
+		LIMIT 4
+	`
+	rowsUpcoming, err := s.db.Query(queryUpcoming, idRestaurant)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving upcoming reservations: %v", err)
+	}
+	defer rowsUpcoming.Close()
+
+	var upcomingReservationsList []types.ReservationDetailsR
+	for rowsUpcoming.Next() {
+		var reservation types.ReservationDetailsR
+		err = rowsUpcoming.Scan(&reservation.FirstName, &reservation.LastName, &reservation.TimeFrom, &reservation.NumberOfPeople)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning upcoming reservation row: %v", err)
+		}
+		upcomingReservationsList = append(upcomingReservationsList, reservation)
+	}
+
+	return &types.ReservationStatsAndList{
+		TotalToday:           totalToday,
+		UpcomingReservation:  upcomingReservations,
+		ConfirmedRate:        confirmedRate,
+		TodayReservations:    todayReservations,
+		UpcomingReservations: upcomingReservationsList,
 	}, nil
 }

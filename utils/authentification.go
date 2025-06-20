@@ -20,6 +20,12 @@ func HashedPassword(password string) ([]byte, error) {
 	return bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 }
 
+type TokenType struct {
+	id   string
+	exp  string
+	role string
+}
+
 var secretKey = []byte(configs.Env.TokenSecretWord)
 
 func CreateRefreshToken(id string, role string) (string, error) {
@@ -27,6 +33,21 @@ func CreateRefreshToken(id string, role string) (string, error) {
 		jwt.MapClaims{
 			"id":   id,
 			"exp":  time.Now().Add(time.Hour * 24 * 2).Unix(),
+			"role": role,
+		})
+	tokenString, err := token.SignedString(secretKey)
+	if err != nil {
+		return "", err
+	}
+
+	return tokenString, nil
+}
+
+func CreateAccesToken(id string, role string) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256,
+		jwt.MapClaims{
+			"id":   id,
+			"exp":  time.Now().Add(time.Hour * 1).Unix(),
 			"role": role,
 		})
 	tokenString, err := token.SignedString(secretKey)
@@ -92,7 +113,7 @@ func DecodeToken(tokenString string) (map[string]interface{}, error) {
 //
 
 func CreateAnId() (string, error) {
-    Id := uuid.New().String()
+	Id := uuid.New().String()
 	if Id == "" {
 		return "", fmt.Errorf("Error while creating an id")
 	}

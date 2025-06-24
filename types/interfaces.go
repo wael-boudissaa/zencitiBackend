@@ -24,7 +24,7 @@ type FeedBackStore interface {
 }
 type UserStore interface {
 	GetUserByEmail(email string) (*User, error)
-    GetAdminByEmail(email string) (*UserAdmin, error)
+	GetAdminByEmail(email string) (*UserAdmin, error)
 	GetUserById(user User) (*User, error)
 	CreateUser(user interface{}, idUser string, token string, hashedPassword string) error
 	CreateClient(idUser, idClient, username string) error
@@ -37,10 +37,10 @@ type UserStore interface {
 	CountFollowing(idClient string) (int, error)
 	GetClientInformationUsername(username string) (*ProfilePage, error)
 	GetClientInformation(idClient string) (*ProfilePage, error)
-    CreateAdminRestaurant(idUser string, idAdminRestaurant string) error
+	CreateAdminRestaurant(idUser string, idAdminRestaurant string) error
 
-    UpdateRestaurantAdmin(idRestaurant string, idAdminRestaurant string) error
-    CreateAdminActivity(idUser string, idAdminRestaurant string) error
+	UpdateRestaurantAdmin(idRestaurant string, idAdminRestaurant string) error
+	CreateAdminActivity(idUser string, idAdminRestaurant string) error
 }
 
 type ActiviteStore interface {
@@ -49,37 +49,47 @@ type ActiviteStore interface {
 	GetActiviteById(id string) (*Activity, error)
 	GetActivityByTypes(typeActivite string) (*[]Activity, error)
 	GetActiviteTypes() (*[]ActivitetType, error)
-    CreateActivityClient(idClientActivity string, act ActivityCreation)(error)
-    GetActivityNotAvaialableAtday(day time.Time, idActivity string) ([]string, error)
+	CreateActivityClient(idClientActivity string, act ActivityCreation) error
+	GetActivityNotAvaialableAtday(day time.Time, idActivity string) ([]string, error)
 	GetPopularActivities() (*[]Activity, error)
 }
 
 type RestaurantStore interface {
-    GetRestaurantByIdProfile(idProfile string) (*UserAdmin, error)
-    GetRestaurantRatingStats(idRestaurant string) (*RestaurantRatingStats, error)
-    GetReservationStatsAndList(idRestaurant string) (*ReservationStatsAndList, error)
+	GetRestaurantByIdProfile(idProfile string) (*UserAdmin, error)
+	GetRestaurantRatingStats(idRestaurant string) (*RestaurantRatingStats, error)
+	GetReservationStatsAndList(idRestaurant string) (*ReservationStatsAndList, error)
+	CountFirstTimeReservers(idRestaurant string) (int, error)
 	GetRestaurantTables(restaurantId string, timeSlot time.Time) (*[]RestaurantTableStatus, error)
-    GetRecentOrders(idRestaurant string, limit int) ([]RecentOrder, error)
+	GetRecentOrders(idRestaurant string, limit int) ([]RecentOrder, error)
 	GetRestaurant() (*[]Restaurant, error)
 	GetRestaurantById(id string) (*Restaurant, error)
 	CreateReservation(idReservation string, reservation ReservationCreation) error
-    GetRecentReviews(idRestaurant string) ([]*Rating, error)
+	GetRecentReviews(idRestaurant string) ([]*Rating, error)
 	CreateOrder(idOrder string, order OrderCreation) error
 	GetReservationTodayByRestaurantId(idRestaurant string) (*[]ReservationListInformation, error)
 	AddFoodToOrder(food AddFoodToOrder) error
 	PostOrderList(orderId string, food []FoodItem) error
 	CountReservationUpcomingWeek(idRestaurant string) (int, error)
-    CountReservationLastMonth(idRestaurant string) (*[]ReservationStats, error)
-    GetRestaurantWorker(idRestaurant string) (*[]RestaurantWorker, error)
+	CountReservationLastMonth(idRestaurant string) (*[]ReservationStats, error)
+	GetTableOccupationToday(idRestaurant string) ([]TableOccupation, error)
+	GetTopFoodsThisWeek(idRestaurant string) ([]FoodPopularity, error)
+	CreateRestaurantWorker(worker RestaurantWorker) error
+	SetRestaurantWorkerStatus(idRestaurantWorker string, status string) error
+	CreateFood(idFood, idCategory, idMenu, name, description, image string, price, status string) error
+	CreateMenu(idMenu, idRestaurant, name string) error
+	SetFoodUnavailable(idFood string) error
+	GetRestaurantWorker(idRestaurant string) (*[]RestaurantWorker, error)
+	CreateFoodCategory(idCategory, nameCategorie string) error
 	CountOrderReceivedToday(idRestaurant string) (int, error)
 	CountReservationReceivedToday(idRestaurant string) (int, error)
+	GetFoodCategoriesByRestaurant(idRestaurant string) ([]FoodCategory, error)
 	GetAvailableMenuInformation(restaurantId string) (*[]MenuInformationFood, error)
 	ReserveTable(idReservation string, reservation ReservationCreation) error
 	GetFriendsOfClient(idClient string) (*[]string, error)
 	GetRatingOfFriendsRestaurant(friendsId []string, idRestaurant string) (*[]RatingRestaurant, error)
 	PostRatingRestaurant(rating PostRatingRestaurant) error
-    GetOrderStatsByHourAndStatus(idRestaurant string) (map[int]int, map[string]int, error)
-    GetClientReservationAndOrderDetails(idClient string) (*ClientDetails, error)
+	GetOrderStatsByHourAndStatus(idRestaurant string) (map[int]int, map[string]int, error)
+	GetClientReservationAndOrderDetails(idClient string) (*ClientDetails, error)
 	// GetRestaurantWorker() (*[]RestaurantWorker, error)
 	// GetRestaurantWorkerById(id string) (*RestaurantWorker, error)
 	// GetRestaurantWorkerFeedBack(id string) (*[]RestaurantWorkerFeedBack, error)

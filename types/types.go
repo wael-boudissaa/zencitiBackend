@@ -23,6 +23,17 @@ type UserInformation struct {
 	Username  string `json:"username"`
 }
 
+type TableOccupation struct {
+	IdTable   string   `json:"idTable"`
+	Occupied  bool     `json:"occupied"`
+	TimeSlots []string `json:"timeSlots"`
+}
+type FoodPopularity struct {
+	IdFood string `json:"idFood"`
+	Name   string `json:"name"`
+	Image  string `json:"image"`
+	Total  int    `json:"total"`
+}
 type ProfilePage struct {
 	FirstName string `json:"firstName"`
 	LastName  string `json:"lastName"`
@@ -80,20 +91,24 @@ type RestaurantTableStatus struct {
 	Status         *string    `json:"status"`
 }
 
+type FoodCategory struct {
+	IdCategory    string `json:"idCategory"`
+	NameCategorie string `json:"nameCategorie"`
+}
 type RestaurantWorker struct {
-	IdRestaurantWorker string    `json:"idRestaurantWorker"`
-	IdRestaurant       string    `json:"idRestaurant"`
-	FirstName          string    `json:"firstName"`
-	LastName           string    `json:"lastName"`
-	Email              string    `json:"email"`
-	PhoneNumber        string    `json:"phoneNumber"`
-	Quote              string    `json:"quote"`
-	StartWorking       time.Time `json:"startWorking"`
-	Nationnallity      string    `json:"nationnallity"`
-	NativeLanguage     string    `json:"nativeLanguage"`
-	Rating             float64   `json:"rating"`
-	Address            string    `json:"address"`
-	Status             string    `json:"status"`
+	IdRestaurantWorker string  `json:"idRestaurantWorker"`
+	IdRestaurant       string  `json:"idRestaurant"`
+	FirstName          string  `json:"firstName"`
+	LastName           string  `json:"lastName"`
+	Email              string  `json:"email"`
+	PhoneNumber        string  `json:"phoneNumber"`
+	Quote              string  `json:"quote"`
+	StartWorking       string  `json:"startWorking"`
+	Nationnallity      string  `json:"nationnallity"`
+	NativeLanguage     string  `json:"nativeLanguage"`
+	Rating             float32 `json:"rating"`
+	Address            string  `json:"address"`
+	Status             string  `json:"status"`
 }
 
 type RestaurantWorkerFeedBack struct {

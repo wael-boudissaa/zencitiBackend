@@ -47,10 +47,185 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	// r.HandleFunc("/restaurantWorker/{id}", h.GetRestaurantWorkerById).Methods("GET")
 	// r.HandleFunc("/restaurantWorker/{id}/feedback", h.GetRestaurantWorkerFeedback).Methods("GET")
 	r.HandleFunc("/reservation/today/{restaurantId}", h.GetReservationToday).Methods("GET")
+	r.HandleFunc("/restaurant/tables/occupany/today/{restaurantId}", h.GetTableOccupationToday).Methods("GET")
+	r.HandleFunc("/restaurant/food/populair/{restaurantId}", h.GetTopFoodsThisWeek).Methods("GET")
 	// r.HandleFunc("/reservation/{id}", h.GetReservationById).Methods("GET")
 	r.HandleFunc("/restaurant/tables", h.GetRestaurantTables).Methods("POST")
 	r.HandleFunc("/food/{menuId}", h.GetFoodByMenu).Methods("GET")
+	r.HandleFunc("/menu", h.CreateMenu).Methods("POST")
+	r.HandleFunc("/restaurant/worker", h.CreateRestaurantWorker).Methods("POST")
+	r.HandleFunc("/restaurant/worker/fire/{idRestaurantWorker}", h.FireRestaurantWorker).Methods("POST")
+	r.HandleFunc("/food/unavailable/{idFood}", h.SetFoodUnavailable).Methods("POST")
+	r.HandleFunc("/food", h.CreateFood).Methods("POST")
+	r.HandleFunc("/food/category", h.CreateFoodCategory).Methods("POST")
+	r.HandleFunc("/food/category/{idRestaurant}", h.GetFoodCategoriesByRestaurant).Methods("GET")
 	// r.HandleFunc("/restauran/tables/status", h.GetStatusTables).Methods("GET")
+}
+
+func (h *Handler) GetFoodCategoriesByRestaurant(w http.ResponseWriter, r *http.Request) {
+	idRestaurant := mux.Vars(r)["idRestaurant"]
+	if idRestaurant == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idRestaurant is required"))
+		return
+	}
+	categories, err := h.store.GetFoodCategoriesByRestaurant(idRestaurant)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, categories)
+}
+
+func (h *Handler) CreateFoodCategory(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		NameCategorie string `json:"nameCategorie"`
+	}
+	if err := utils.ParseJson(r, &req); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+	idCategory, err := utils.CreateAnId()
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if err := h.store.CreateFoodCategory(idCategory, req.NameCategorie); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusCreated, map[string]string{"idCategory": idCategory})
+}
+
+func (h *Handler) SetFoodUnavailable(w http.ResponseWriter, r *http.Request) {
+	idFood := mux.Vars(r)["idFood"]
+	if idFood == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idFood is required"))
+		return
+	}
+	if err := h.store.SetFoodUnavailable(idFood); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, map[string]string{"message": "Food set to unavailable"})
+}
+
+func (h *Handler) CreateMenu(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		IdRestaurant string `json:"idRestaurant"`
+		Name         string `json:"name"`
+	}
+	if err := utils.ParseJson(r, &req); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+	idMenu, err := utils.CreateAnId()
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if err := h.store.CreateMenu(idMenu, req.IdRestaurant, req.Name); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusCreated, map[string]string{"idMenu": idMenu})
+}
+
+func (h *Handler) CreateFood(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseMultipartForm(10 << 20)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+	idFood, err := utils.CreateAnId()
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	idCategory := r.FormValue("idCategory")
+	idMenu := r.FormValue("idMenu")
+	name := r.FormValue("name")
+	description := r.FormValue("description")
+	price := r.FormValue("price")
+	status := r.FormValue("status")
+	file, _, err := r.FormFile("image")
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+	defer file.Close()
+	imageURL, err := utils.UploadImageToCloudinary(file)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if err := h.store.CreateFood(idFood, idCategory, idMenu, name, description, imageURL, price, status); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusCreated, map[string]string{"idFood": idFood, "image": imageURL})
+}
+
+func (h *Handler) CreateRestaurantWorker(w http.ResponseWriter, r *http.Request) {
+	var worker types.RestaurantWorker
+	if err := utils.ParseJson(r, &worker); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+	if worker.IdRestaurantWorker == "" {
+		id, err := utils.CreateAnId()
+		if err != nil {
+			utils.WriteError(w, http.StatusInternalServerError, err)
+			return
+		}
+		worker.IdRestaurantWorker = id
+	}
+	worker.Status = "active"
+	if err := h.store.CreateRestaurantWorker(worker); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusCreated, map[string]string{"message": "Worker created", "id": worker.IdRestaurantWorker})
+}
+
+func (h *Handler) FireRestaurantWorker(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["idRestaurantWorker"]
+	if id == "" {
+		utils.WriteError(w, http.StatusBadRequest, errors.New("idRestaurantWorker is required"))
+		return
+	}
+	if err := h.store.SetRestaurantWorkerStatus(id, "inactive"); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, map[string]string{"message": "Worker status set to inactive"})
+}
+
+func (h *Handler) GetTopFoodsThisWeek(w http.ResponseWriter, r *http.Request) {
+	restaurantId := mux.Vars(r)["restaurantId"]
+	if restaurantId == "" {
+		utils.WriteError(w, http.StatusBadRequest, errors.New("restaurantId is required"))
+		return
+	}
+	foods, err := h.store.GetTopFoodsThisWeek(restaurantId)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, foods)
+}
+
+func (h *Handler) GetTableOccupationToday(w http.ResponseWriter, r *http.Request) {
+	restaurantId := mux.Vars(r)["restaurantId"]
+	if restaurantId == "" {
+		utils.WriteError(w, http.StatusBadRequest, errors.New("restaurantId is required"))
+		return
+	}
+	tables, err := h.store.GetTableOccupationToday(restaurantId)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, tables)
 }
 
 func (h *Handler) GetReservationStats(w http.ResponseWriter, r *http.Request) {
@@ -277,10 +452,16 @@ func (h *Handler) RestaurantCountInformation(w http.ResponseWriter, r *http.Requ
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
+	countFirstTimeUsers, err := h.store.CountFirstTimeReservers(restaurantId)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
 
 	result := map[string]int{
 		"numberReservation": countNumberofReservation,
 		"numberOrders":      countNumberOfOrders,
+		"firstTimeUsers":    countFirstTimeUsers,
 	}
 	utils.WriteJson(w, http.StatusOK, result)
 }

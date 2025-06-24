@@ -3,11 +3,15 @@ package utils
 import (
 	"context"
 	"fmt"
+	"io"
+	"log"
+	"mime/multipart"
+	"os"
+
 	"github.com/cloudinary/cloudinary-go/v2"
 	"github.com/cloudinary/cloudinary-go/v2/api"
 	"github.com/cloudinary/cloudinary-go/v2/api/admin"
 	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
-	"log"
 )
 
 func Credentials() (*cloudinary.Cloudinary, context.Context) {
@@ -24,7 +28,7 @@ func Credentials() (*cloudinary.Cloudinary, context.Context) {
 	return cld, ctx
 }
 
-func UploadImage(cld *cloudinary.Cloudinary, ctx context.Context,image string) {
+func UploadImage(cld *cloudinary.Cloudinary, ctx context.Context, image string) {
 	// Upload an image from a remote URL
 	resp, err := cld.Upload.Upload(ctx, image,
 		uploader.UploadParams{
@@ -38,6 +42,25 @@ func UploadImage(cld *cloudinary.Cloudinary, ctx context.Context,image string) {
 	}
 
 	fmt.Println("**** 1. Uploaded Image ****\nDelivery URL:", resp.SecureURL, "\n")
+}
+
+func UploadImageToCloudinary(file multipart.File) (string, error) {
+	cld, ctx := Credentials()
+	tmpFile, err := os.CreateTemp("", "upload-*.jpg")
+	if err != nil {
+		return "", err
+	}
+	defer os.Remove(tmpFile.Name())
+	_, err = io.Copy(tmpFile, file)
+	if err != nil {
+		return "", err
+	}
+	tmpFile.Close()
+	resp, err := cld.Upload.Upload(ctx, tmpFile.Name(), uploader.UploadParams{})
+	if err != nil {
+		return "", err
+	}
+	return resp.SecureURL, nil
 }
 
 func GetAssetInfo(cld *cloudinary.Cloudinary, ctx context.Context) {

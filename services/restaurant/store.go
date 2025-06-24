@@ -19,6 +19,188 @@ func NewStore(db *sql.DB) *store {
 	return &store{db: db}
 }
 
+func (s *store) CreateMenu(idMenu, idRestaurant, name string) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(`UPDATE menu SET active = 0 WHERE idRestaurant = ?`, idRestaurant)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	// Insert the new menu as active
+	_, err = tx.Exec(`INSERT INTO menu (idMenu, idRestaurant, name, active) VALUES (?, ?, ?, 1)`, idMenu, idRestaurant, name)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *store) CreateFood(idFood, idCategory, idMenu, name, description, image string, price, status string) error {
+	query := `INSERT INTO food (idFood, idCategory, idMenu, name, description, image, price, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+	_, err := s.db.Exec(query, idFood, idCategory, idMenu, name, description, image, price, status)
+	return err
+}
+
+func (s *store) CreateFoodCategory(idCategory, nameCategorie string) error {
+	query := `INSERT INTO foodCategory (idCategory, nameCategorie) VALUES (?, ?)`
+	_, err := s.db.Exec(query, idCategory, nameCategorie)
+	return err
+}
+
+func (s *store) GetFoodCategoriesByRestaurant(idRestaurant string) ([]types.FoodCategory, error) {
+	query := `
+        SELECT DISTINCT fc.idCategory, fc.nameCategorie
+        FROM foodCategory fc
+        JOIN food f ON f.idCategory = fc.idCategory
+        JOIN menu m ON f.idMenu = m.idMenu
+        WHERE m.idRestaurant = ?
+    `
+	rows, err := s.db.Query(query, idRestaurant)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var categories []types.FoodCategory
+	for rows.Next() {
+		var cat types.FoodCategory
+		if err := rows.Scan(&cat.IdCategory, &cat.NameCategorie); err != nil {
+			return nil, err
+		}
+		categories = append(categories, cat)
+	}
+	return categories, nil
+}
+
+func (s *store) SetFoodUnavailable(idFood string) error {
+	query := `UPDATE food SET status = 'unavailable' WHERE idFood = ?`
+
+	_, err := s.db.Exec(query, idFood)
+	return err
+}
+
+func (s *store) GetTableOccupationToday(idRestaurant string) ([]types.TableOccupation, error) {
+	query := `
+        SELECT t.idTable, r.timeFrom, r.timeTo
+        FROM table_restaurant t
+        LEFT JOIN reservation r ON t.idTable = r.idTable
+            AND DATE(r.timeFrom) = CURDATE()
+            AND r.idRestaurant = ?
+        WHERE t.idRestaurant = ?
+        ORDER BY t.idTable, r.timeFrom
+    `
+	rows, err := s.db.Query(query, idRestaurant, idRestaurant)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	tableMap := make(map[string]*types.TableOccupation)
+	for rows.Next() {
+		var idTable string
+		var timeFrom, timeTo sql.NullTime
+		if err := rows.Scan(&idTable, &timeFrom, &timeTo); err != nil {
+			return nil, err
+		}
+		if _, exists := tableMap[idTable]; !exists {
+			tableMap[idTable] = &types.TableOccupation{
+				IdTable:   idTable,
+				Occupied:  false,
+				TimeSlots: []string{},
+			}
+		}
+		if timeFrom.Valid && timeTo.Valid {
+			tableMap[idTable].Occupied = true
+			slot := fmt.Sprintf("%02d:%02d-%02d:%02d",
+				timeFrom.Time.Hour(), timeFrom.Time.Minute(),
+				timeTo.Time.Hour(), timeTo.Time.Minute())
+			tableMap[idTable].TimeSlots = append(tableMap[idTable].TimeSlots, slot)
+		}
+	}
+	result := []types.TableOccupation{}
+	for _, v := range tableMap {
+		result = append(result, *v)
+	}
+	return result, nil
+}
+
+func (s *store) CountFirstTimeReservers(idRestaurant string) (int, error) {
+	query := `
+        SELECT COUNT(*) FROM (
+            SELECT r.idClient
+            FROM reservation r
+            WHERE r.idRestaurant = ?
+            AND r.idReservation = (
+                SELECT r2.idReservation
+                FROM reservation r2
+                WHERE r2.idClient = r.idClient
+                ORDER BY r2.timeFrom ASC
+                LIMIT 1
+            )
+            GROUP BY r.idClient
+        ) AS first_time_users;
+    `
+	row := s.db.QueryRow(query, idRestaurant)
+	var count int
+	if err := row.Scan(&count); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (s *store) GetTopFoodsThisWeek(idRestaurant string) ([]types.FoodPopularity, error) {
+	query := `
+        SELECT f.idFood, f.name, f.image, SUM(ofd.quantity) as total
+        FROM orderFood ofd
+        JOIN orderList ol ON ofd.idOrder = ol.idOrder
+        JOIN reservation r ON ol.idReservation = r.idReservation
+        JOIN food f ON ofd.idFood = f.idFood
+        WHERE r.idRestaurant = ?
+          AND YEARWEEK(ol.createdAt, 1) = YEARWEEK(CURDATE(), 1)
+        GROUP BY f.idFood, f.name, f.image
+        ORDER BY total DESC
+        LIMIT 3
+    `
+	rows, err := s.db.Query(query, idRestaurant)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var foods []types.FoodPopularity
+	for rows.Next() {
+		var food types.FoodPopularity
+		if err := rows.Scan(&food.IdFood, &food.Name, &food.Image, &food.Total); err != nil {
+			return nil, err
+		}
+		foods = append(foods, food)
+	}
+	return foods, nil
+}
+
+func (s *store) CreateRestaurantWorker(worker types.RestaurantWorker) error {
+	query := `
+        INSERT INTO restaurantWorkers (
+            idRestaurantWorker, idRestaurant, firstName, lastName, email, phoneNumber, quote,
+            startWorking, nationnallity, nativeLanguage, rating, address, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+    `
+	_, err := s.db.Exec(query,
+		worker.IdRestaurantWorker, worker.IdRestaurant, worker.FirstName, worker.LastName,
+		worker.Email, worker.PhoneNumber, worker.Quote, worker.StartWorking, worker.Nationnallity,
+		worker.NativeLanguage, worker.Rating, worker.Address,
+	)
+	return err
+}
+
+func (s *store) SetRestaurantWorkerStatus(idRestaurantWorker string, status string) error {
+	query := `UPDATE restaurantWorkers SET status = ? WHERE idRestaurantWorker = ?`
+	_, err := s.db.Exec(query, status, idRestaurantWorker)
+	return err
+}
+
 func (s *store) GetRestaurantByIdProfile(idProfile string) (*types.UserAdmin, error) {
 	query := `SELECT 
 	  profile.idProfile AS profileId,
@@ -1263,6 +1445,7 @@ func (s *store) GetRestaurantRatingStats(idRestaurant string) (*types.Restaurant
 		Percentage1Star:  percent(count1Star),
 	}, nil
 }
+
 func (s *store) GetReservationStatsAndList(idRestaurant string) (*types.ReservationStatsAndList, error) {
 	// Stats query: use ROUND and NULLIF to avoid decimal scan issues and division by zero
 	queryStats := `

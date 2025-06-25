@@ -77,7 +77,11 @@ type RestaurantStore interface {
 	UpdateRestaurantWorker(id string, worker RestaurantWorker) error
 	SetRestaurantWorkerStatus(idRestaurantWorker string, status string) error
 	UpdateFood(idFood string, food Food) error
+	GetMenusByRestaurant(idRestaurant string) ([]Menu, error)
+	GetFoodsOfActiveMenu(idRestaurant string) ([]Food, error)
 	GetFoodById(idFood string) (*Food, error)
+	GetRestaurantMenuStats(restaurantId string) (*RestaurantMenuStats, error)
+	GetUpcomingReservations(restaurantId string) ([]UpcomingReservationInfo, error)
 	GetMenuWithFoods(idMenu string) (*Menu, *[]Food, error)
 	CreateTable(table Table) error
 	UpdateTable(idTable string, table Table) error

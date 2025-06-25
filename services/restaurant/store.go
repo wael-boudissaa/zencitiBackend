@@ -19,6 +19,41 @@ func NewStore(db *sql.DB) *store {
 	return &store{db: db}
 }
 
+func (s *store) GetUpcomingReservations(restaurantId string) ([]types.UpcomingReservationInfo, error) {
+	query := `
+        SELECT 
+            r.idReservation,
+            profile.firstName,
+            profile.lastName,
+            r.numberOfPeople,
+            DATE(r.timeFrom) as date,
+            DAYNAME(r.timeFrom) as day,
+            TIME_FORMAT(r.timeFrom, '%H:%i') as time,
+            r.idTable
+        FROM reservation r
+        JOIN client c ON r.idClient = c.idClient
+        JOIN profile ON c.idProfile = profile.idProfile
+        WHERE r.idRestaurant = ? AND DATE(r.timeFrom) > CURDATE()
+        ORDER BY r.timeFrom ASC
+        LIMIT 4
+    `
+	rows, err := s.db.Query(query, restaurantId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var reservations []types.UpcomingReservationInfo
+	for rows.Next() {
+		var r types.UpcomingReservationInfo
+		if err := rows.Scan(&r.IdReservation, &r.FirstName, &r.LastName, &r.NumberPeople, &r.Date, &r.Day, &r.Time, &r.IdTable); err != nil {
+			return nil, err
+		}
+		reservations = append(reservations, r)
+	}
+	return reservations, nil
+}
+
 func (s *store) CreateMenu(idMenu, idRestaurant, name string) error {
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -113,6 +148,114 @@ func (s *store) UpdateReservationStatus(idReservation, status string) error {
 	query := `UPDATE reservation SET status = ? WHERE idReservation = ?`
 	_, err := s.db.Exec(query, status, idReservation)
 	return err
+}
+
+func (s *store) GetRestaurantMenuStats(restaurantId string) (*types.RestaurantMenuStats, error) {
+	stats := &types.RestaurantMenuStats{}
+
+	// Total menus
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM menu WHERE idRestaurant = ?`, restaurantId).Scan(&stats.TotalMenus)
+	if err != nil {
+		return nil, err
+	}
+
+	// Active menu id and name
+	var activeMenuId string
+	err = s.db.QueryRow(`SELECT idMenu, name FROM menu WHERE idRestaurant = ? AND active = 1 LIMIT 1`, restaurantId).Scan(&activeMenuId, &stats.ActiveMenuName)
+	if err != nil {
+		// If no active menu, return stats with zeroes
+		return stats, nil
+	}
+
+	// Total items in active menu
+	err = s.db.QueryRow(`SELECT COUNT(*) FROM food WHERE idMenu = ?`, activeMenuId).Scan(&stats.TotalItems)
+	if err != nil {
+		return nil, err
+	}
+
+	// Number of categories in active menu
+	err = s.db.QueryRow(`SELECT COUNT(DISTINCT idCategory) FROM food WHERE idMenu = ?`, activeMenuId).Scan(&stats.TotalCategories)
+	if err != nil {
+		return nil, err
+	}
+
+	// Available foods in active menu
+	err = s.db.QueryRow(`SELECT COUNT(*) FROM food WHERE idMenu = ? AND status = 'available'`, activeMenuId).Scan(&stats.AvailableFoods)
+	if err != nil {
+		return nil, err
+	}
+
+	// Unavailable foods in active menu
+	err = s.db.QueryRow(`SELECT COUNT(*) FROM food WHERE idMenu = ? AND status != 'available'`, activeMenuId).Scan(&stats.UnavailableFoods)
+	if err != nil {
+		return nil, err
+	}
+
+	// Top 4 popular foods of the restaurant (all time)
+	rows, err := s.db.Query(`
+        SELECT f.name, COUNT(ol.idFood) as orderCount
+        FROM food f
+        JOIN menu m ON f.idMenu = m.idMenu
+        JOIN orderFood ol ON f.idFood = ol.idFood
+        JOIN orderList o ON ol.idOrder = o.idOrder
+        WHERE m.idRestaurant = ?
+        GROUP BY f.idFood
+        ORDER BY orderCount DESC
+        LIMIT 4
+    `, restaurantId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var pf types.PopularFood
+		if err := rows.Scan(&pf.FoodName, &pf.OrderCount); err != nil {
+			return nil, err
+		}
+		stats.PopularFoods = append(stats.PopularFoods, pf)
+	}
+
+	return stats, nil
+}
+
+func (s *store) GetFoodsOfActiveMenu(idRestaurant string) ([]types.Food, error) {
+	var idMenu string
+	err := s.db.QueryRow("SELECT idMenu FROM menu WHERE idRestaurant = ? AND active = 1 LIMIT 1", idRestaurant).Scan(&idMenu)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.db.Query("SELECT idFood, idCategory, idMenu, name, description, image, price, status FROM food WHERE idMenu = ?", idMenu)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var foods []types.Food
+	for rows.Next() {
+		var food types.Food
+		if err := rows.Scan(&food.IdFood, &food.IdCategory, &food.IdMenu, &food.Name, &food.Description, &food.Image, &food.Price, &food.Status); err != nil {
+			return nil, err
+		}
+		foods = append(foods, food)
+	}
+	return foods, nil
+}
+
+func (s *store) GetMenusByRestaurant(idRestaurant string) ([]types.Menu, error) {
+	query := `SELECT idMenu, idRestaurant, name, active, createdAt FROM menu WHERE idRestaurant = ?`
+	rows, err := s.db.Query(query, idRestaurant)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var menus []types.Menu
+	for rows.Next() {
+		var menu types.Menu
+		if err := rows.Scan(&menu.IdMenu, &menu.IdRestaurant, &menu.Name, &menu.Active, &menu.CreatedAt); err != nil {
+			return nil, err
+		}
+		menus = append(menus, menu)
+	}
+	return menus, nil
 }
 
 func (s *store) UpdateFood(idFood string, food types.Food) error {

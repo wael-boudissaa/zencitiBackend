@@ -21,38 +21,17 @@ func NewHandler(s types.RestaurantStore) *Handler {
 }
 
 func (h *Handler) RegisterRouter(r *mux.Router) {
+	//!NOTE: RESTAURANT INFORMATIONS
 	r.HandleFunc("/restaurant", h.GetRestaurant).Methods("GET")
-	r.HandleFunc("/restaurant/{id}", h.GetRestaurantById).Methods("GET")
-	r.HandleFunc("/reviews/{idRestaurant}", h.GetRecentReviewsRestaurant).Methods("GET")
-	r.HandleFunc("/reservation", h.CreateReservation).Methods("POST")
-	r.HandleFunc("/order", h.CreateOrder).Methods("POST")
-	r.HandleFunc("/friends/reviews", h.GetFriendsReviewsRestaurant).Methods("POST")
-	r.HandleFunc("/restaurant/rating", h.PostReviewRestaurant).Methods("POST")
-	r.HandleFunc("/menu/actif/{restaurantId}", h.GetAvailableMenuInformation).Methods("GET")
-	r.HandleFunc("/reservation/month/{restaurantId}", h.GetReservationMonthStats).Methods("GET")
 	r.HandleFunc("/restaurant/count/{restaurantId}", h.RestaurantCountInformation).Methods("GET")
+	r.HandleFunc("/restaurant/{id}", h.GetRestaurantById).Methods("GET")
+	r.HandleFunc("/menu/actif/{restaurantId}", h.GetAvailableMenuInformation).Methods("GET")
 	r.HandleFunc("/restaurant/workers/{idRestaurant}", h.GetRestaurantWorker).Methods("GET")
-	r.HandleFunc("/wael/{restaurantId}", h.GetOrderStats).Methods("GET")
-	r.HandleFunc("/waela/{clientId}", h.GetClientInf).Methods("GEt")
 	r.HandleFunc("/restaurant/token/{token}", h.GetRestaurantByToken).Methods("GET")
 	r.HandleFunc("/restaurant/stats/{restaurantId}", h.RestaurtantStats).Methods("GET")
-	r.HandleFunc("/reservation/stats/{restaurantId}", h.GetReservationStats).Methods("GET")
-
-	// r.HandleFunc("/order/add", h.AddFoodToOrder).Methods("POST")
-
-	r.HandleFunc("/order/place", h.PostOrderClient).Methods("POST")
-	// r.HandleFunc("/orderinformation/{orderId}", h.GetOrderInformation).Methods("GET")
-
-	// r.HandleFunc("/restaurantWorker", h.GetRestaurantWorker).Methods("GET")
-	// r.HandleFunc("/restaurantWorker/{id}", h.GetRestaurantWorkerById).Methods("GET")
-	// r.HandleFunc("/restaurantWorker/{id}/feedback", h.GetRestaurantWorkerFeedback).Methods("GET")
-	r.HandleFunc("/reservation/today/{restaurantId}", h.GetReservationToday).Methods("GET")
 	r.HandleFunc("/restaurant/tables/occupany/today/{restaurantId}", h.GetTableOccupationToday).Methods("GET")
 	r.HandleFunc("/restaurant/food/populair/{restaurantId}", h.GetTopFoodsThisWeek).Methods("GET")
-	// r.HandleFunc("/reservation/{id}", h.GetReservationById).Methods("GET")
 	r.HandleFunc("/restaurant/tables", h.GetRestaurantTables).Methods("POST")
-	r.HandleFunc("/food/{menuId}", h.GetFoodByMenu).Methods("GET")
-	r.HandleFunc("/menu", h.CreateMenu).Methods("POST")
 	r.HandleFunc("/restaurant/worker", h.CreateRestaurantWorker).Methods("POST")
 	r.HandleFunc("/restaurant/worker/fire/{idRestaurantWorker}", h.FireRestaurantWorker).Methods("POST")
 	r.HandleFunc("/food/unavailable/{idFood}", h.SetFoodUnavailable).Methods("POST")
@@ -60,8 +39,83 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/food/category", h.CreateFoodCategory).Methods("POST")
 	r.HandleFunc("/food/category/{idRestaurant}", h.GetFoodCategoriesByRestaurant).Methods("GET")
 	r.HandleFunc("/food/{idFood}", h.DeleteFood).Methods("DELETE")
+	r.HandleFunc("/table/{idTable}", h.UpdateTable).Methods("PUT")
+	r.HandleFunc("/table/{idTable}", h.DeleteTable).Methods("DELETE")
+	r.HandleFunc("/tables/{restaurantId}", h.GetTablesByRestaurant).Methods("GET")
+	r.HandleFunc("/restaurant/worker/{idRestaurantWorker}", h.UpdateRestaurantWorker).Methods("PUT")
+	r.HandleFunc("/menu/restaurant/{idRestaurant}", h.GetMenusByRestaurant).Methods("GET")
+	r.HandleFunc("/food/category/{idRestaurant}", h.GetFoodCategoriesByRestaurant).Methods("GET")
+	r.HandleFunc("/food/active/{idRestaurant}", h.GetFoodsOfActiveMenu).Methods("GET")
+	r.HandleFunc("/restaurant/menu/stats/{restaurantId}", h.GetRestaurantMenuStats).Methods("GET")
+	//!NOTE: REVIEWS
+	r.HandleFunc("/reviews/{idRestaurant}", h.GetRecentReviewsRestaurant).Methods("GET")
+	r.HandleFunc("/friends/reviews", h.GetFriendsReviewsRestaurant).Methods("POST")
+	r.HandleFunc("/restaurant/rating", h.PostReviewRestaurant).Methods("POST")
+	//!NOTE: RESERVATION
+	r.HandleFunc("/reservation/month/{restaurantId}", h.GetReservationMonthStats).Methods("GET")
+	r.HandleFunc("/reservation", h.CreateReservation).Methods("POST")
+	r.HandleFunc("/reservation/stats/{restaurantId}", h.GetReservationStats).Methods("GET")
+	r.HandleFunc("/reservation/today/{restaurantId}", h.GetReservationToday).Methods("GET")
+	r.HandleFunc("/reservation/{idReservation}/status", h.UpdateReservationStatus).Methods("PUT")
+	r.HandleFunc("/reservation/upcoming/{restaurantId}", h.GetUpcomingReservations).Methods("GET")
 
-	// r.HandleFunc("/restauran/tables/status", h.GetStatusTables).Methods("GET")
+	//!NOTE: ORDER
+	r.HandleFunc("/order", h.CreateOrder).Methods("POST")
+	r.HandleFunc("/wael/{restaurantId}", h.GetOrderStats).Methods("GET")
+	r.HandleFunc("/waela/{clientId}", h.GetClientInf).Methods("GET")
+	r.HandleFunc("/order/place", h.PostOrderClient).Methods("POST")
+	r.HandleFunc("/food/{menuId}", h.GetFoodByMenu).Methods("GET")
+
+	r.HandleFunc("/menu", h.CreateMenu).Methods("POST")
+	r.HandleFunc("/food/{idFood}", h.GetFoodById).Methods("GET")
+	r.HandleFunc("/food/{idFood}", h.UpdateFood).Methods("PUT")
+	r.HandleFunc("/menu/{idMenu}", h.GetMenuWithFoods).Methods("GET")
+
+	//!NOTE:NOTIFICATIONI NOT THIS PLACE
+	r.HandleFunc("/notification", h.CreateNotification).Methods("POST")
+	r.HandleFunc("/notification", h.GetNotifications).Methods("GET")
+}
+
+func (h *Handler) GetUpcomingReservations(w http.ResponseWriter, r *http.Request) {
+	restaurantId := mux.Vars(r)["restaurantId"]
+	if restaurantId == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("restaurantId is required"))
+		return
+	}
+	reservations, err := h.store.GetUpcomingReservations(restaurantId)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, reservations)
+}
+
+func (h *Handler) GetRestaurantMenuStats(w http.ResponseWriter, r *http.Request) {
+	restaurantId := mux.Vars(r)["restaurantId"]
+	if restaurantId == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("restaurantId is required"))
+		return
+	}
+	stats, err := h.store.GetRestaurantMenuStats(restaurantId)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, stats)
+}
+
+func (h *Handler) GetFoodsOfActiveMenu(w http.ResponseWriter, r *http.Request) {
+	idRestaurant := mux.Vars(r)["idRestaurant"]
+	if idRestaurant == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idRestaurant is required"))
+		return
+	}
+	foods, err := h.store.GetFoodsOfActiveMenu(idRestaurant)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, foods)
 }
 
 func (h *Handler) GetMenuWithFoods(w http.ResponseWriter, r *http.Request) {
@@ -75,6 +129,20 @@ func (h *Handler) GetMenuWithFoods(w http.ResponseWriter, r *http.Request) {
 		"menu":  menu,
 		"foods": foods,
 	})
+}
+
+func (h *Handler) GetMenusByRestaurant(w http.ResponseWriter, r *http.Request) {
+	idRestaurant := mux.Vars(r)["idRestaurant"]
+	if idRestaurant == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idRestaurant is required"))
+		return
+	}
+	menus, err := h.store.GetMenusByRestaurant(idRestaurant)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, menus)
 }
 
 func (h *Handler) UpdateTable(w http.ResponseWriter, r *http.Request) {

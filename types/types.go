@@ -162,6 +162,20 @@ type Food struct {
 	Price       *float64 `json:"price"`
 	Status      *string  `json:"status"`
 }
+type RestaurantMenuStats struct {
+	TotalMenus       int           `json:"totalMenus"`
+	ActiveMenuName   string        `json:"activeMenuName"`
+	TotalItems       int           `json:"totalItems"`
+	TotalCategories  int           `json:"totalCategories"`
+	AvailableFoods   int           `json:"availableFoods"`
+	UnavailableFoods int           `json:"unavailableFoods"`
+	PopularFoods     []PopularFood `json:"popularFoods"`
+}
+
+type PopularFood struct {
+	FoodName   string `json:"foodName"`
+	OrderCount int    `json:"orderCount"`
+}
 
 // !WARNING:: THERE SHOULD BE A GENEARL THING ON THE RESERVATION FOR THE RESTAURANT AND THE ACITIVITE AND ALSO FOR THE RATING AND FEEDBACK
 type ReservationListInformation struct {
@@ -359,6 +373,16 @@ type ReservationDetailsR struct {
 	LastName       string    `json:"lastName"`
 	TimeFrom       time.Time `json:"timeFrom"`
 	NumberOfPeople int       `json:"numberOfPeople"`
+}
+type UpcomingReservationInfo struct {
+	IdReservation string `json:"idReservation"`
+	FirstName     string `json:"firstName"`
+	LastName      string `json:"lastName"`
+	NumberPeople  int    `json:"numberPeople"`
+	Date          string `json:"date"`
+	Day           string `json:"day"`
+	Time          string `json:"time"`
+	IdTable       string `json:"idTable"`
 }
 
 type ReservationStatsAndList struct {

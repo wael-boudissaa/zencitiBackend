@@ -74,7 +74,18 @@ type RestaurantStore interface {
 	GetTableOccupationToday(idRestaurant string) ([]TableOccupation, error)
 	GetTopFoodsThisWeek(idRestaurant string) ([]FoodPopularity, error)
 	CreateRestaurantWorker(worker RestaurantWorker) error
+	UpdateRestaurantWorker(id string, worker RestaurantWorker) error
 	SetRestaurantWorkerStatus(idRestaurantWorker string, status string) error
+	UpdateFood(idFood string, food Food) error
+	GetFoodById(idFood string) (*Food, error)
+	GetMenuWithFoods(idMenu string) (*Menu, *[]Food, error)
+	CreateTable(table Table) error
+	UpdateTable(idTable string, table Table) error
+	DeleteTable(idTable string) error
+	GetTablesByRestaurant(restaurantId string) ([]Table, error)
+	UpdateReservationStatus(idReservation, status string) error
+	CreateNotification(notification Notification) error
+	GetNotifications() ([]Notification, error)
 	CreateFood(idFood, idCategory, idMenu, name, description, image string, price, status string) error
 	CreateMenu(idMenu, idRestaurant, name string) error
 	SetFoodUnavailable(idFood string) error
@@ -83,6 +94,7 @@ type RestaurantStore interface {
 	CountOrderReceivedToday(idRestaurant string) (int, error)
 	CountReservationReceivedToday(idRestaurant string) (int, error)
 	GetFoodCategoriesByRestaurant(idRestaurant string) ([]FoodCategory, error)
+	DeleteFood(idFood string) error
 	GetAvailableMenuInformation(restaurantId string) (*[]MenuInformationFood, error)
 	ReserveTable(idReservation string, reservation ReservationCreation) error
 	GetFriendsOfClient(idClient string) (*[]string, error)

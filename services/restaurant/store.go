@@ -50,6 +50,131 @@ func (s *store) CreateFoodCategory(idCategory, nameCategorie string) error {
 	return err
 }
 
+func (s *store) DeleteFood(idFood string) error {
+	query := `DELETE FROM food WHERE idFood = ?`
+	_, err := s.db.Exec(query, idFood)
+	return err
+}
+
+func (s *store) GetFoodById(idFood string) (*types.Food, error) {
+	query := `SELECT * FROM food WHERE idFood = ?`
+	row := s.db.QueryRow(query, idFood)
+	var food types.Food
+	err := row.Scan(
+		&food.IdFood, &food.IdCategory, &food.IdMenu, &food.Name,
+		&food.Description, &food.Image, &food.Price, &food.Status,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &food, nil
+}
+
+func (s *store) GetMenuWithFoods(idMenu string) (*types.Menu, *[]types.Food, error) {
+	menuQuery := `SELECT * FROM menu WHERE idMenu = ?`
+	row := s.db.QueryRow(menuQuery, idMenu)
+	var menu types.Menu
+	err := row.Scan(&menu.IdMenu, &menu.IdRestaurant, &menu.Name, &menu.Active, &menu.CreatedAt)
+	if err != nil {
+		return nil, nil, err
+	}
+	foods, err := s.GetFoodByMenu(idMenu)
+	if err != nil {
+		return &menu, nil, err
+	}
+	return &menu, foods, nil
+}
+
+func (s *store) DeleteTable(idTable string) error {
+	query := `DELETE FROM table_restaurant WHERE idTable = ?`
+	_, err := s.db.Exec(query, idTable)
+	return err
+}
+
+func (s *store) GetTablesByRestaurant(restaurantId string) ([]types.Table, error) {
+	query := `SELECT idTable, idRestaurant, posX, posY, duration_minutes, is_available FROM table_restaurant WHERE idRestaurant = ?`
+	rows, err := s.db.Query(query, restaurantId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var tables []types.Table
+	for rows.Next() {
+		var t types.Table
+		if err := rows.Scan(&t.IdTable, &t.IdRestaurant, &t.PosX, &t.PosY, &t.DurationMinutes, &t.IsAvailable); err != nil {
+			return nil, err
+		}
+		tables = append(tables, t)
+	}
+	return tables, nil
+}
+
+func (s *store) UpdateReservationStatus(idReservation, status string) error {
+	query := `UPDATE reservation SET status = ? WHERE idReservation = ?`
+	_, err := s.db.Exec(query, status, idReservation)
+	return err
+}
+
+func (s *store) UpdateFood(idFood string, food types.Food) error {
+	query := `UPDATE food SET idCategory=?, idMenu=?, name=?, description=?, image=?, price=?, status=? WHERE idFood=?`
+	_, err := s.db.Exec(query, food.IdCategory, food.IdMenu, food.Name, food.Description, food.Image, food.Price, food.Status, idFood)
+	return err
+}
+
+func (s *store) UpdateRestaurantWorker(id string, worker types.RestaurantWorker) error {
+	query := `UPDATE restaurantWorkers SET firstName=?, lastName=?, email=?, phoneNumber=?, quote=?, startWorking=?, nationnallity=?, nativeLanguage=?, rating=?, address=?, status=? WHERE idRestaurantWorker=?`
+	_, err := s.db.Exec(query, worker.FirstName, worker.LastName, worker.Email, worker.PhoneNumber, worker.Quote, worker.StartWorking, worker.Nationnallity, worker.NativeLanguage, worker.Rating, worker.Address, worker.Status, id)
+	return err
+}
+
+// func (s *store) PostFeedbackRestaurant(feedback types.FeedbackRestaurant) error {
+// 	query := `INSERT INTO feedbackRestaurant (idClient, idRestaurant, comment, createdAt) VALUES (?, ?, ?, NOW())`
+// 	_, err := s.db.Exec(query, feedback.IdClient, feedback.IdRestaurant, feedback.Comment)
+// 	return err
+// }
+
+// func (s *store) PostFeedbackWorker(feedback types.FeedbackWorker) error {
+// 	query := `INSERT INTO feedbackWorker (idClient, idRestaurantWorker, comment, createdAt) VALUES (?, ?, ?, NOW())`
+// 	_, err := s.db.Exec(query, feedback.IdClient, feedback.IdRestaurantWorker, feedback.Comment)
+// 	return err
+// }
+
+func (s *store) CreateNotification(notification types.Notification) error {
+	query := `INSERT INTO notifications (idNotification, idAdmin, titre, type, description) VALUES (?, ?, ?, ?, ?)`
+	_, err := s.db.Exec(query, notification.IdNotification, notification.IdAdmin, notification.Titre, notification.Type, notification.Description)
+	return err
+}
+
+func (s *store) GetNotifications() ([]types.Notification, error) {
+	query := `SELECT idNotification, idAdmin, titre, type, description FROM notifications  `
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var notifs []types.Notification
+	for rows.Next() {
+		var n types.Notification
+		if err := rows.Scan(&n.IdNotification, &n.IdAdmin, &n.Titre, &n.Type, &n.Description); err != nil {
+			return nil, err
+		}
+		notifs = append(notifs, n)
+	}
+	return notifs, nil
+}
+
+func (s *store) UpdateTable(idTable string, table types.Table) error {
+	query := `UPDATE table_restaurant SET posX=?, posY=?, duration_minutes=?, is_available=? WHERE idTable=?`
+	_, err := s.db.Exec(query, table.PosX, table.PosY, table.DurationMinutes, table.IsAvailable, idTable)
+	return err
+}
+
+func (s *store) CreateTable(table types.Table) error {
+	query := `INSERT INTO table_restaurant (idTable, idRestaurant, posX, posY, duration_minutes, is_available) VALUES (?, ?, ?, ?, ?, ?)`
+	_, err := s.db.Exec(query, table.IdTable, table.IdRestaurant, table.PosX, table.PosY, table.DurationMinutes, table.IsAvailable)
+	return err
+}
+
 func (s *store) GetFoodCategoriesByRestaurant(idRestaurant string) ([]types.FoodCategory, error) {
 	query := `
         SELECT DISTINCT fc.idCategory, fc.nameCategorie

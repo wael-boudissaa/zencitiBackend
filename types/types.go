@@ -132,6 +132,14 @@ type Menu struct {
 	Active       bool      `json:"active"`
 	CreatedAt    time.Time `json:"createdAt"`
 }
+type Table struct {
+	IdTable         string `json:"idTable"`
+	IdRestaurant    string `json:"idRestaurant"`
+	PosX            int    `json:"posX"`
+	PosY            int    `json:"posY"`
+	DurationMinutes int    `json:"duration_minutes"`
+	IsAvailable     bool   `json:"is_available"`
+}
 
 type MenuInformationFood struct {
 	IdMenu      string  `json:"idMenu" db:"idMenu"`
@@ -329,6 +337,13 @@ type FeedBack struct {
 	IDFeedBack string `json:"idFeedback"`
 	Comment    string `json:"comment"`
 	CreatedAt  string `json:"createdAt"`
+}
+type Notification struct {
+	IdNotification string `json:"idNotification"`
+	IdAdmin        string `json:"idAdmin"`
+	Titre          string `json:"titre"`
+	Type           string `json:"type"`
+	Description    string `json:"description"`
 }
 
 type Rating struct {

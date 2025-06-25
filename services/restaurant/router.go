@@ -59,7 +59,185 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/food", h.CreateFood).Methods("POST")
 	r.HandleFunc("/food/category", h.CreateFoodCategory).Methods("POST")
 	r.HandleFunc("/food/category/{idRestaurant}", h.GetFoodCategoriesByRestaurant).Methods("GET")
+	r.HandleFunc("/food/{idFood}", h.DeleteFood).Methods("DELETE")
+
 	// r.HandleFunc("/restauran/tables/status", h.GetStatusTables).Methods("GET")
+}
+
+func (h *Handler) GetMenuWithFoods(w http.ResponseWriter, r *http.Request) {
+	idMenu := mux.Vars(r)["idMenu"]
+	menu, foods, err := h.store.GetMenuWithFoods(idMenu)
+	if err != nil {
+		utils.WriteError(w, http.StatusNotFound, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, map[string]interface{}{
+		"menu":  menu,
+		"foods": foods,
+	})
+}
+
+func (h *Handler) UpdateTable(w http.ResponseWriter, r *http.Request) {
+	idTable := mux.Vars(r)["idTable"]
+	var table types.Table
+	if err := utils.ParseJson(r, &table); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+	if err := h.store.UpdateTable(idTable, table); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, map[string]string{"message": "Table updated"})
+}
+
+func (h *Handler) DeleteTable(w http.ResponseWriter, r *http.Request) {
+	idTable := mux.Vars(r)["idTable"]
+	if err := h.store.DeleteTable(idTable); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, map[string]string{"message": "Table deleted"})
+}
+
+func (h *Handler) GetTablesByRestaurant(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["restaurantId"]
+	tables, err := h.store.GetTablesByRestaurant(id)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, tables)
+}
+
+func (h *Handler) UpdateReservationStatus(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["idReservation"]
+	var req struct {
+		Status string `json:"status"`
+	}
+	if err := utils.ParseJson(r, &req); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+	if err := h.store.UpdateReservationStatus(id, req.Status); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, map[string]string{"message": "Reservation status updated"})
+}
+
+func (h *Handler) CreateNotification(w http.ResponseWriter, r *http.Request) {
+	var notif types.Notification
+	if err := utils.ParseJson(r, &notif); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+	if notif.IdNotification == "" {
+		id, _ := utils.CreateAnId()
+		notif.IdNotification = id
+	}
+	if err := h.store.CreateNotification(notif); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusCreated, notif)
+}
+
+func (h *Handler) GetNotifications(w http.ResponseWriter, r *http.Request) {
+	notifs, err := h.store.GetNotifications()
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, notifs)
+}
+
+func (h *Handler) CreateTable(w http.ResponseWriter, r *http.Request) {
+	var table types.Table
+	if err := utils.ParseJson(r, &table); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+	if table.IdTable == "" {
+		id, _ := utils.CreateAnId()
+		table.IdTable = id
+	}
+	if err := h.store.CreateTable(table); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusCreated, table)
+}
+
+func (h *Handler) CreateRestaurantWorker(w http.ResponseWriter, r *http.Request) {
+	var worker types.RestaurantWorker
+	if err := utils.ParseJson(r, &worker); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+	if worker.IdRestaurantWorker == "" {
+		id, err := utils.CreateAnId()
+		if err != nil {
+			utils.WriteError(w, http.StatusInternalServerError, err)
+			return
+		}
+		worker.IdRestaurantWorker = id
+	}
+	worker.Status = "active" // Always set to active on creation
+	if err := h.store.CreateRestaurantWorker(worker); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusCreated, map[string]string{
+		"message": "Worker created",
+		"id":      worker.IdRestaurantWorker,
+	})
+}
+
+func (h *Handler) UpdateRestaurantWorker(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["idRestaurantWorker"]
+	var worker types.RestaurantWorker
+	if err := utils.ParseJson(r, &worker); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+	if err := h.store.UpdateRestaurantWorker(id, worker); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, map[string]string{"message": "Worker updated"})
+}
+
+func (h *Handler) FireRestaurantWorker(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["idRestaurantWorker"]
+	if id == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idRestaurantWorker is required"))
+		return
+	}
+	if err := h.store.SetRestaurantWorkerStatus(id, "inactive"); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, map[string]string{"message": "Worker status set to inactive"})
+}
+
+func (h *Handler) GetFoodById(w http.ResponseWriter, r *http.Request) {
+	idFood := mux.Vars(r)["idFood"]
+	food, err := h.store.GetFoodById(idFood)
+	if err != nil {
+		utils.WriteError(w, http.StatusNotFound, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, food)
+}
+
+func (h *Handler) DeleteFood(w http.ResponseWriter, r *http.Request) {
+	idFood := mux.Vars(r)["idFood"]
+	if err := h.store.DeleteFood(idFood); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, map[string]string{"message": "Food deleted"})
 }
 
 func (h *Handler) GetFoodCategoriesByRestaurant(w http.ResponseWriter, r *http.Request) {
@@ -165,39 +343,18 @@ func (h *Handler) CreateFood(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJson(w, http.StatusCreated, map[string]string{"idFood": idFood, "image": imageURL})
 }
 
-func (h *Handler) CreateRestaurantWorker(w http.ResponseWriter, r *http.Request) {
-	var worker types.RestaurantWorker
-	if err := utils.ParseJson(r, &worker); err != nil {
+func (h *Handler) UpdateFood(w http.ResponseWriter, r *http.Request) {
+	idFood := mux.Vars(r)["idFood"]
+	var food types.Food
+	if err := utils.ParseJson(r, &food); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
-	if worker.IdRestaurantWorker == "" {
-		id, err := utils.CreateAnId()
-		if err != nil {
-			utils.WriteError(w, http.StatusInternalServerError, err)
-			return
-		}
-		worker.IdRestaurantWorker = id
-	}
-	worker.Status = "active"
-	if err := h.store.CreateRestaurantWorker(worker); err != nil {
+	if err := h.store.UpdateFood(idFood, food); err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
-	utils.WriteJson(w, http.StatusCreated, map[string]string{"message": "Worker created", "id": worker.IdRestaurantWorker})
-}
-
-func (h *Handler) FireRestaurantWorker(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["idRestaurantWorker"]
-	if id == "" {
-		utils.WriteError(w, http.StatusBadRequest, errors.New("idRestaurantWorker is required"))
-		return
-	}
-	if err := h.store.SetRestaurantWorkerStatus(id, "inactive"); err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err)
-		return
-	}
-	utils.WriteJson(w, http.StatusOK, map[string]string{"message": "Worker status set to inactive"})
+	utils.WriteJson(w, http.StatusOK, map[string]string{"message": "Food updated"})
 }
 
 func (h *Handler) GetTopFoodsThisWeek(w http.ResponseWriter, r *http.Request) {

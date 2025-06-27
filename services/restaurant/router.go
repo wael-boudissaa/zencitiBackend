@@ -23,6 +23,7 @@ func NewHandler(s types.RestaurantStore) *Handler {
 func (h *Handler) RegisterRouter(r *mux.Router) {
 	//!NOTE: RESTAURANT INFORMATIONS
 	r.HandleFunc("/restaurant", h.GetRestaurant).Methods("GET")
+	r.HandleFunc("/restaurant", h.CreateRestaurant).Methods("POST")
 	r.HandleFunc("/restaurant/count/{restaurantId}", h.RestaurantCountInformation).Methods("GET")
 	r.HandleFunc("/restaurant/{id}", h.GetRestaurantById).Methods("GET")
 	r.HandleFunc("/menu/actif/{restaurantId}", h.GetAvailableMenuInformation).Methods("GET")
@@ -32,7 +33,7 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/restaurant/tables/occupany/today/{restaurantId}", h.GetTableOccupationToday).Methods("GET")
 	r.HandleFunc("/restaurant/food/populair/{restaurantId}", h.GetTopFoodsThisWeek).Methods("GET")
 	r.HandleFunc("/restaurant/tables", h.GetRestaurantTables).Methods("POST")
-	r.HandleFunc("/restaurant/worker", h.CreateRestaurantWorker).Methods("POST")
+	r.HandleFunc("/restaurant/worker/{idRestaurant}", h.CreateRestaurantWorker).Methods("POST")
 	r.HandleFunc("/restaurant/worker/fire/{idRestaurantWorker}", h.FireRestaurantWorker).Methods("POST")
 	r.HandleFunc("/food/unavailable/{idFood}", h.SetFoodUnavailable).Methods("POST")
 	r.HandleFunc("/food", h.CreateFood).Methods("POST")
@@ -47,6 +48,8 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/food/category/{idRestaurant}", h.GetFoodCategoriesByRestaurant).Methods("GET")
 	r.HandleFunc("/food/active/{idRestaurant}", h.GetFoodsOfActiveMenu).Methods("GET")
 	r.HandleFunc("/restaurant/menu/stats/{restaurantId}", h.GetRestaurantMenuStats).Methods("GET")
+	r.HandleFunc("/restaurant/food/{restaurantId}", h.GetFoodRestaurant).Methods("GET")
+	r.HandleFunc("/restaurant/addfood/{idMenu}", h.AddFoodToMenu).Methods("POST")
 	//!NOTE: REVIEWS
 	r.HandleFunc("/reviews/{idRestaurant}", h.GetRecentReviewsRestaurant).Methods("GET")
 	r.HandleFunc("/friends/reviews", h.GetFriendsReviewsRestaurant).Methods("POST")
@@ -70,10 +73,104 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/food/{idFood}", h.GetFoodById).Methods("GET")
 	r.HandleFunc("/food/{idFood}", h.UpdateFood).Methods("PUT")
 	r.HandleFunc("/menu/{idMenu}", h.GetMenuWithFoods).Methods("GET")
+	r.HandleFunc("/food/{idFood}/status", h.SetFoodStatusInMenu).Methods("PUT")
 
 	//!NOTE:NOTIFICATIONI NOT THIS PLACE
 	r.HandleFunc("/notification", h.CreateNotification).Methods("POST")
 	r.HandleFunc("/notification", h.GetNotifications).Methods("GET")
+}
+
+func (h *Handler) SetFoodStatusInMenu(w http.ResponseWriter, r *http.Request) {
+	idFood := mux.Vars(r)["idFood"]
+	var req struct {
+		Status string `json:"status"` // "available" or "unavailable"
+	}
+	if err := utils.ParseJson(r, &req); err != nil {
+		utils.WriteError(w, 400, err)
+		return
+	}
+	err := h.store.SetFoodStatusInMenu(idFood, req.Status)
+	if err != nil {
+		utils.WriteError(w, 500, err)
+		return
+	}
+	utils.WriteJson(w, 200, map[string]string{"message": "Status updated"})
+}
+
+func (h *Handler) AddFoodToMenu(w http.ResponseWriter, r *http.Request) {
+	idMenu := mux.Vars(r)["idMenu"]
+	var req struct {
+		IdFood string `json:"idFood"`
+	}
+	if err := utils.ParseJson(r, &req); err != nil {
+		utils.WriteError(w, 400, err)
+		return
+	}
+	idMenuFood, err := utils.CreateAnId()
+	if err != nil {
+		utils.WriteError(w, 500, err)
+		return
+	}
+	err = h.store.AddFoodToMenu(idMenuFood, idMenu, req.IdFood)
+	if err != nil {
+		utils.WriteError(w, 500, err)
+		return
+	}
+	utils.WriteJson(w, 201, map[string]string{"idMenuFood": idMenuFood})
+}
+
+func (h *Handler) CreateRestaurant(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseMultipartForm(10 << 20)
+	if err != nil {
+		utils.WriteError(w, 400, err)
+		return
+	}
+
+	idRestaurant, err := utils.CreateAnId()
+	if err != nil {
+		utils.WriteError(w, 500, err)
+		return
+	}
+	idAdminRestaurant := r.FormValue("idAdminRestaurant")
+	name := r.FormValue("name")
+	description := r.FormValue("description")
+	location := r.FormValue("location")
+	capacity, _ := strconv.Atoi(r.FormValue("capacity"))
+	longitude, _ := strconv.ParseFloat(r.FormValue("longitude"), 64)
+	latitude, _ := strconv.ParseFloat(r.FormValue("latitude"), 64)
+
+	file, _, err := r.FormFile("image")
+	if err != nil {
+		utils.WriteError(w, 400, err)
+		return
+	}
+	defer file.Close()
+	imageURL, err := utils.UploadImageToCloudinary(file)
+	if err != nil {
+		utils.WriteError(w, 500, err)
+		return
+	}
+
+	err = h.store.CreateRestaurant(idRestaurant, idAdminRestaurant, name, imageURL, longitude, latitude, description, capacity, location)
+	if err != nil {
+		utils.WriteError(w, 500, err)
+		return
+	}
+	utils.WriteJson(w, 201, map[string]string{"idRestaurant": idRestaurant, "image": imageURL})
+}
+
+func (h *Handler) GetFoodRestaurant(w http.ResponseWriter, r *http.Request) {
+	restaurantId := mux.Vars(r)["restaurantId"]
+	if restaurantId == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("restaurantId is required"))
+		return
+	}
+	reservations, err := h.store.GetFoodRestaurant(restaurantId)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, reservations)
 }
 
 func (h *Handler) GetUpcomingReservations(w http.ResponseWriter, r *http.Request) {
@@ -238,27 +335,49 @@ func (h *Handler) CreateTable(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CreateRestaurantWorker(w http.ResponseWriter, r *http.Request) {
-	var worker types.RestaurantWorker
-	if err := utils.ParseJson(r, &worker); err != nil {
+	idRestaurant := mux.Vars(r)["idRestaurant"]
+
+	err := r.ParseMultipartForm(10 << 20)
+	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
-	if worker.IdRestaurantWorker == "" {
-		id, err := utils.CreateAnId()
+
+	var worker types.RestaurantWorkerCreation
+
+	worker.FirstName = r.FormValue("firstName")
+	worker.LastName = r.FormValue("lastName")
+	worker.Email = r.FormValue("email")
+	worker.PhoneNumber = r.FormValue("phoneNumber")
+	worker.Quote = r.FormValue("quote")
+	worker.Nationnallity = r.FormValue("nationnallity")
+	worker.NativeLanguage = r.FormValue("nativeLanguage")
+	worker.Address = r.FormValue("address")
+
+	id, err := utils.CreateAnId()
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	file, _, err := r.FormFile("image")
+	if err == nil {
+		defer file.Close()
+		imageURL, err := utils.UploadImageToCloudinary(file)
 		if err != nil {
 			utils.WriteError(w, http.StatusInternalServerError, err)
 			return
 		}
-		worker.IdRestaurantWorker = id
+		worker.Image = imageURL
 	}
-	worker.Status = "active" // Always set to active on creation
-	if err := h.store.CreateRestaurantWorker(worker); err != nil {
+
+	if err := h.store.CreateRestaurantWorker(id,idRestaurant, worker); err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
 	utils.WriteJson(w, http.StatusCreated, map[string]string{
 		"message": "Worker created",
-		"id":      worker.IdRestaurantWorker,
+		"id":      id,
 	})
 }
 

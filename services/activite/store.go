@@ -53,7 +53,7 @@ func (s *Store) CreateActivityClient(idClientActivity string, act types.Activity
 }
 
 func (s *Store) GetActivityNotAvaialableAtday(day time.Time, idActivity string) ([]string, error) {
-    query := `
+	query := `
         SELECT 
             TIME(timeActivity) as reservedTime
         FROM 
@@ -63,25 +63,26 @@ func (s *Store) GetActivityNotAvaialableAtday(day time.Time, idActivity string) 
             AND DATE(timeActivity) = ?
             AND idActivity = ?
     ;`
-    rows, err := s.db.Query(query, day.Format("2006-01-02"), idActivity)
-    if err != nil {
-        return nil, err
-    }
-    defer rows.Close()
+	rows, err := s.db.Query(query, day.Format("2006-01-02"), idActivity)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-    var reservedTimes []string
-    for rows.Next() {
-        var t string
-        if err := rows.Scan(&t); err != nil {
-            return nil, err
-        }
-        reservedTimes = append(reservedTimes, t)
-    }
-    if err := rows.Err(); err != nil {
-        return nil, err
-    }
-    return reservedTimes, nil
+	var reservedTimes []string
+	for rows.Next() {
+		var t string
+		if err := rows.Scan(&t); err != nil {
+			return nil, err
+		}
+		reservedTimes = append(reservedTimes, t)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return reservedTimes, nil
 }
+
 func (s *Store) GetRecentActivities(idClient string) (*[]types.ActivityProfile, error) {
 	query := `SELECT
     activity.idActivity,activity.nameActivity,activity.descriptionActivity,activity.imageActivity,activity.popularity,clientActivity.timeActivity
@@ -125,6 +126,8 @@ func (s *Store) GetActiviteById(id string) (*types.Activity, error) {
 		&act.NameActivity,
 		&act.Description,
 		&act.ImageActivite,
+		&act.Langitude,
+		&act.Latitude,
 		&act.IdTypeActivity,
 		&act.Popularity,
 	)
@@ -177,6 +180,9 @@ func (s *Store) GetActivityByTypes(id string) (*[]types.Activity, error) {
 			&act.NameActivity,
 			&act.Description,
 			&act.ImageActivite,
+			&act.Langitude,
+			&act.Latitude,
+
 			&act.IdTypeActivity,
 			&act.Popularity,
 		)

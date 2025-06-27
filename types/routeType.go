@@ -48,7 +48,6 @@ type ReservationCreation struct {
 	IdRestaurant   string     `json:"idRestaurant"`
 	NumberOfPeople int        `json:"numberOfPeople"`
 	TimeFrom       time.Time  `json:"timeFrom"`
-	TimeTo         *time.Time `json:"timeTo"`
 	TableId        string     `json:"idTable"`
 }
 

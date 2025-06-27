@@ -63,6 +63,12 @@ func (s *Store) GetAdminByEmail(email string) (*types.UserAdmin, error) {
 	return u, nil
 }
 
+func (s *Store) UpdateClientLocation(idClient string, longitude, latitude float64) error {
+	query := `UPDATE client SET longitude = ?, latitude = ? WHERE idClient = ?`
+	_, err := s.db.Exec(query, longitude, latitude, idClient)
+	return err
+}
+
 func (s *Store) GetUserByEmail(email string) (*types.User, error) {
 	query := `SELECT 
 	  profile.idProfile AS profileId,

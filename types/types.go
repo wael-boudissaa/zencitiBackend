@@ -10,6 +10,25 @@ type Profile struct {
 	Address   string `json:"address"`
 	Phone     string `json:"phone"`
 }
+type ClientReservationInfo struct {
+	IdReservation      string    `json:"idReservation"`
+	TimeFrom           time.Time `json:"timeFrom"`
+	NumberOfPeople     int       `json:"numberOfPeople"`
+	Status             string    `json:"status"`
+	CreatedAt          time.Time `json:"createdAt"`
+	RestaurantName     string    `json:"restaurantName"`
+	RestaurantImage    string    `json:"restaurantImage"`
+	RestaurantLocation string    `json:"restaurantLocation"`
+	IdRestaurant       string    `json:"idRestaurant"`
+}
+type ClientActivityInfo struct {
+    IdClientActivity     string    `json:"idClientActivity"`
+    TimeActivity         time.Time `json:"timeActivity"`
+    Status              string    `json:"status"`
+    ActivityName        string    `json:"activityName"`
+    ActivityImage       string    `json:"activityImage"`
+    ActivityDescription string    `json:"activityDescription"`
+}
 type ClientInfo struct {
 	IdClient        string `json:"idClient"`
 	FirstName       string `json:"firstName"`

@@ -87,6 +87,43 @@ func (s *Store) UpdateClientActivityStatus(idClientActivity string) error {
 
 	return nil
 }
+func (s *Store) GetAllClientActivities(idClient string) ([]types.ClientActivityInfo, error) {
+    query := `
+        SELECT 
+            ca.idClientActivity,
+            ca.timeActivity,
+            ca.status,
+            a.nameActivity,
+            a.imageActivity,
+            a.descriptionActivity
+        FROM clientActivity ca
+        JOIN activity a ON ca.idActivity = a.idActivity
+        WHERE ca.idClient = ?
+        ORDER BY ca.timeActivity DESC
+    `
+    rows, err := s.db.Query(query, idClient)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var activities []types.ClientActivityInfo
+    for rows.Next() {
+        var activity types.ClientActivityInfo
+        if err := rows.Scan(
+            &activity.IdClientActivity,
+            &activity.TimeActivity,
+            &activity.Status,
+            &activity.ActivityName,
+            &activity.ActivityImage,
+            &activity.ActivityDescription,
+        ); err != nil {
+            return nil, err
+        }
+        activities = append(activities, activity)
+    }
+    return activities, nil
+}
 
 func (s *Store) CreateActivityClient(idClientActivity string, act types.ActivityCreation) error {
 	query := `INSERT INTO clientActivity (idClientActivity,idClient, idActivity, timeActivity,status) VALUES (?,?, ?, ?,?)`

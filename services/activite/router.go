@@ -1,6 +1,7 @@
 package activite
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -29,7 +30,24 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/activity/type/{type}", h.GetActiviteByType).Methods("GET")
 	r.HandleFunc("/activity/type", h.GetActiviteTypes).Methods("GET")
 	r.HandleFunc("/activity/notAvailable", h.GetActivityNotAvaialbaleAtday).Methods("POST")
+	r.HandleFunc("/client/{idClient}/activities", h.GetAllClientActivities).Methods("GET")
 	r.HandleFunc("/activity/complete", h.CompleteClientActivity).Methods("POST")
+}
+
+func (h *Handler) GetAllClientActivities(w http.ResponseWriter, r *http.Request) {
+	idClient := mux.Vars(r)["idClient"]
+	if idClient == "" {
+		utils.WriteError(w, http.StatusBadRequest, errors.New("idClient is required"))
+		return
+	}
+
+	activities, err := h.store.GetAllClientActivities(idClient)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, activities)
 }
 
 func (h *Handler) CompleteClientActivity(w http.ResponseWriter, r *http.Request) {

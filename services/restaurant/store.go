@@ -19,6 +19,50 @@ func NewStore(db *sql.DB) *store {
 	return &store{db: db}
 }
 
+func (s *store) GetAllClientReservations(idClient string) ([]types.ClientReservationInfo, error) {
+	query := `
+        SELECT 
+            r.idReservation,
+            r.timeFrom,
+            r.numberOfPeople,
+            r.status,
+            r.createdAt,
+            rest.name,
+            rest.image,
+            rest.location,
+            rest.idRestaurant
+        FROM reservation r
+        JOIN restaurant rest ON r.idRestaurant = rest.idRestaurant
+        WHERE r.idClient = ?
+        ORDER BY r.timeFrom DESC
+    `
+	rows, err := s.db.Query(query, idClient)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var reservations []types.ClientReservationInfo
+	for rows.Next() {
+		var reservation types.ClientReservationInfo
+		if err := rows.Scan(
+			&reservation.IdReservation,
+			&reservation.TimeFrom,
+			&reservation.NumberOfPeople,
+			&reservation.Status,
+			&reservation.CreatedAt,
+			&reservation.RestaurantName,
+			&reservation.RestaurantImage,
+			&reservation.RestaurantLocation,
+			&reservation.IdRestaurant,
+		); err != nil {
+			return nil, err
+		}
+		reservations = append(reservations, reservation)
+	}
+	return reservations, nil
+}
+
 func (s *store) GetUpcomingReservations(restaurantId string) ([]types.UpcomingReservationInfo, error) {
 	query := `
         SELECT 

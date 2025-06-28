@@ -75,9 +75,26 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/menu/{idMenu}", h.GetMenuWithFoods).Methods("GET")
 	r.HandleFunc("/food/{idFood}/status", h.SetFoodStatusInMenu).Methods("PUT")
 
+	r.HandleFunc("/client/{idClient}/reservations", h.GetAllClientReservations).Methods("GET")
 	//!NOTE:NOTIFICATIONI NOT THIS PLACE
 	r.HandleFunc("/notification", h.CreateNotification).Methods("POST")
 	r.HandleFunc("/notification", h.GetNotifications).Methods("GET")
+}
+
+func (h *Handler) GetAllClientReservations(w http.ResponseWriter, r *http.Request) {
+	idClient := mux.Vars(r)["idClient"]
+	if idClient == "" {
+		utils.WriteError(w, http.StatusBadRequest, errors.New("idClient is required"))
+		return
+	}
+
+	reservations, err := h.store.GetAllClientReservations(idClient)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, reservations)
 }
 
 func (h *Handler) SetFoodStatusInMenu(w http.ResponseWriter, r *http.Request) {

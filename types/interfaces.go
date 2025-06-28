@@ -1,5 +1,6 @@
 package types
 
+
 import "time"
 
 type ProfileStore interface {
@@ -56,6 +57,7 @@ type ActiviteStore interface {
 	GetActiviteTypes() (*[]ActivitetType, error)
 	CreateActivityClient(idClientActivity string, act ActivityCreation) error
 	GetActivityNotAvaialableAtday(day time.Time, idActivity string) ([]string, error)
+    GetAllClientActivities(idClient string) ([]ClientActivityInfo, error)
 	GetPopularActivities() (*[]Activity, error)
 }
 
@@ -64,6 +66,7 @@ type RestaurantStore interface {
 	GetRestaurantRatingStats(idRestaurant string) (*RestaurantRatingStats, error)
 	GetReservationStatsAndList(idRestaurant string) (*ReservationStatsAndList, error)
 	GetFoodRestaurant(idRestaurant string) (*[]Food, error)
+    GetAllClientReservations(idClient string) ([]ClientReservationInfo, error)
 	CountFirstTimeReservers(idRestaurant string) (int, error)
 	GetRestaurantTables(restaurantId string, timeSlot time.Time) (*[]RestaurantTableStatus, error)
 	GetRecentOrders(idRestaurant string, limit int) ([]RecentOrder, error)

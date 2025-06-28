@@ -8,6 +8,7 @@ import (
 
 	// "github.com/wael-boudissaa/zencitiBackend/services/auth"
 	"github.com/wael-boudissaa/zencitiBackend/types"
+	"github.com/wael-boudissaa/zencitiBackend/utils"
 )
 
 type Store struct {
@@ -16,6 +17,19 @@ type Store struct {
 
 func NewStore(db *sql.DB) *Store {
 	return &Store{db: db}
+}
+
+func (s *Store) IsClientAdminActivity(idProfile string) (bool, string, error) {
+	query := `SELECT idAdminActivity FROM adminActivity WHERE idProfile = ?`
+	var idAdminActivity string
+	err := s.db.QueryRow(query, idProfile).Scan(&idAdminActivity)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return false, "", nil // Not an admin
+		}
+		return false, "", fmt.Errorf("error checking admin activity status: %v", err)
+	}
+	return true, idAdminActivity, nil
 }
 
 func (s *Store) GetAdminByEmail(email string) (*types.UserAdmin, error) {
@@ -71,7 +85,7 @@ func (s *Store) UpdateClientLocation(idClient string, longitude, latitude float6
 
 func (s *Store) GetUserByEmail(email string) (*types.User, error) {
 	query := `SELECT 
-	  profile.idProfile AS profileId,
+	  profile.idProfile,
 	  profile.firstName,
 	  profile.lastName,
 	  profile.email,
@@ -113,6 +127,69 @@ func (s *Store) GetUserByEmail(email string) (*types.User, error) {
 	}
 
 	return u, nil
+}
+
+func (s *Store) GetAllClients() ([]types.ClientInfo, error) {
+	query := `
+        SELECT c.idClient, p.firstName, p.lastName, p.email, c.username,
+               CASE WHEN aa.idAdminActivity IS NOT NULL THEN true ELSE false END as isAdminActivity
+        FROM client c
+        JOIN profile p ON c.idProfile = p.idProfile
+        LEFT JOIN adminActivity aa ON p.idProfile = aa.idProfile
+    `
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var clients []types.ClientInfo
+	for rows.Next() {
+		var client types.ClientInfo
+		err := rows.Scan(&client.IdClient, &client.FirstName, &client.LastName,
+			&client.Email, &client.Username, &client.IsAdminActivity)
+		if err != nil {
+			return nil, err
+		}
+		clients = append(clients, client)
+	}
+	return clients, nil
+}
+
+func (s *Store) AssignClientToAdminActivity(idClient string) error {
+	var idProfile string
+	err := s.db.QueryRow(`SELECT idProfile FROM client WHERE idClient = ?`, idClient).Scan(&idProfile)
+	if err != nil {
+		return fmt.Errorf("error getting client profile: %v", err)
+	}
+
+	var count int
+	err = s.db.QueryRow(`SELECT COUNT(*) FROM adminActivity WHERE idProfile = ?`, idProfile).Scan(&count)
+	if err != nil {
+		return fmt.Errorf("error checking existing admin: %v", err)
+	}
+	if count > 0 {
+		return fmt.Errorf("client is already an admin activity")
+	}
+
+	// Create new adminActivity
+	idAdminActivity, err := utils.CreateAnId()
+	if err != nil {
+		return err
+	}
+
+	query := `INSERT INTO adminActivity (idAdminActivity, idProfile) VALUES (?, ?)`
+	_, err = s.db.Exec(query, idAdminActivity, idProfile)
+	if err != nil {
+		return fmt.Errorf("error creating admin activity: %v", err)
+	}
+	query = `UPDATE profile set type = 'adminActivity' WHERE idProfile = ?`
+	_, err = s.db.Exec(query, idProfile)
+	if err != nil {
+		return fmt.Errorf("error updating profile type to adminActivity: %v", err)
+	}
+
+	return nil
 }
 
 func (s *Store) SearchUsersByUsernamePrefix(prefix string) (*[]string, error) {

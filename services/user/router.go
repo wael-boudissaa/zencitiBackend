@@ -40,6 +40,8 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/clientinformation/{idClient}", h.ClientInformation).Methods("GET")
 	router.HandleFunc("/usernameinformation/{username}", h.ClientInformationUsername).Methods("GET")
 	router.HandleFunc("/username", h.GetUsername).Methods("GET")
+	router.HandleFunc("/admin/assignactivity", h.AssignClientToAdminActivity).Methods("POST")
+	router.HandleFunc("/admin/clients", h.GetAllClients).Methods("GET")
 	//!NOTE: admin
 	router.HandleFunc("/admin/login", h.loginRestaurant).Methods("POST")
 	router.HandleFunc("/admin/create", h.CreateAdmin).Methods("POST")
@@ -180,7 +182,52 @@ func (h *Handler) loginUser(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
-	utils.WriteJson(w, http.StatusOK, map[string]interface{}{"token": token, "user": u})
+	isAdmin, idAdminActivity, err := h.store.IsClientAdminActivity(u.Id)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	response := map[string]interface{}{
+		"token":           token,
+		"user":            u,
+		"isAdminActivity": isAdmin,
+	}
+
+	if isAdmin {
+		response["idAdminActivity"] = idAdminActivity
+	}
+
+	utils.WriteJson(w, http.StatusOK, response)
+}
+
+func (h *Handler) GetAllClients(w http.ResponseWriter, r *http.Request) {
+	clients, err := h.store.GetAllClients()
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, clients)
+}
+
+func (h *Handler) AssignClientToAdminActivity(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		IdClient string `json:"idClient"`
+	}
+	if err := utils.ParseJson(r, &req); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	err := h.store.AssignClientToAdminActivity(req.IdClient)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, map[string]string{
+		"message": "Client assigned to admin activity successfully",
+	})
 }
 
 func (h *Handler) signUpUser(w http.ResponseWriter, r *http.Request) {

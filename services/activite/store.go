@@ -2,6 +2,7 @@ package activite
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/wael-boudissaa/zencitiBackend/types"
@@ -15,33 +16,77 @@ func NewStore(db *sql.DB) *Store {
 	return &Store{db: db}
 }
 
-// func (s *Store) GetActivite() (*[]types.Activite, error) {
-// 	query := `SELECT * FROM activite`
-// 	rows, err := s.db.Query(query)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer rows.Close() // Ensure rows are closed to avoid memory leaks
-// 	var activite []types.Activite
+//	func (s *Store) GetActivite() (*[]types.Activite, error) {
+//		query := `SELECT * FROM activite`
+//		rows, err := s.db.Query(query)
+//		if err != nil {
+//			return nil, err
+//		}
+//		defer rows.Close() // Ensure rows are closed to avoid memory leaks
+//		var activite []types.Activite
 //
-// 	for rows.Next() {
-// 		var act types.Activite
-// 		err = rows.Scan(
-// 			&act.IdActivite,
-// 			&act.NameActivite,
-// 			&act.Description,
-// 		)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		activite = append(activite, act)
-// 	}
-// 	if err := rows.Err(); err != nil {
-// 		return nil, err
-// 	}
-// 	return &activite, nil
-// }
-//
+//		for rows.Next() {
+//			var act types.Activite
+//			err = rows.Scan(
+//				&act.IdActivite,
+//				&act.NameActivite,
+//				&act.Description,
+//			)
+//			if err != nil {
+//				return nil, err
+//			}
+//			activite = append(activite, act)
+//		}
+//		if err := rows.Err(); err != nil {
+//			return nil, err
+//		}
+//		return &activite, nil
+//	}
+func (s *Store) UpdateClientActivityStatus(idClientActivity string) error {
+	// First, check if the client activity exists and get its details
+	var timeActivity time.Time
+	var currentStatus string
+	checkQuery := `SELECT timeActivity, status FROM clientActivity WHERE idClientActivity = ?`
+	err := s.db.QueryRow(checkQuery, idClientActivity).Scan(&timeActivity, &currentStatus)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("client activity with ID %s not found", idClientActivity)
+		}
+		return fmt.Errorf("error checking client activity: %v", err)
+	}
+
+	// Check if already completed
+	if currentStatus == "completed" {
+		return fmt.Errorf("activity is already completed")
+	}
+
+	// Check if the current time is within 2 hours before or after the scheduled time
+	now := time.Now()
+	timeDiff := now.Sub(timeActivity)
+
+	// Allow check-in 2 hours before or 2 hours after the scheduled time
+	if timeDiff < -2*time.Hour || timeDiff > 2*time.Hour {
+		return fmt.Errorf("activity can only be completed within 2 hours of the scheduled time")
+	}
+
+	// Update the status to completed
+	updateQuery := `UPDATE clientActivity SET status = 'completed' WHERE idClientActivity = ?`
+	result, err := s.db.Exec(updateQuery, idClientActivity)
+	if err != nil {
+		return fmt.Errorf("error updating client activity status: %v", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error checking rows affected: %v", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("no rows were updated")
+	}
+
+	return nil
+}
 
 func (s *Store) CreateActivityClient(idClientActivity string, act types.ActivityCreation) error {
 	query := `INSERT INTO clientActivity (idClientActivity,idClient, idActivity, timeActivity,status) VALUES (?,?, ?, ?,?)`

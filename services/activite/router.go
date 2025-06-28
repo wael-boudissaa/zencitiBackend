@@ -1,8 +1,10 @@
 package activite
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -27,6 +29,42 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/activity/type/{type}", h.GetActiviteByType).Methods("GET")
 	r.HandleFunc("/activity/type", h.GetActiviteTypes).Methods("GET")
 	r.HandleFunc("/activity/notAvailable", h.GetActivityNotAvaialbaleAtday).Methods("POST")
+	r.HandleFunc("/activity/complete", h.CompleteClientActivity).Methods("POST")
+}
+
+func (h *Handler) CompleteClientActivity(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		IdClientActivity string `json:"idClientActivity"`
+	}
+
+	if err := utils.ParseJson(r, &req); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if req.IdClientActivity == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idClientActivity is required"))
+		return
+	}
+
+	err := h.store.UpdateClientActivityStatus(req.IdClientActivity)
+	if err != nil {
+		// Check for specific error types
+		if strings.Contains(err.Error(), "not found") {
+			utils.WriteError(w, http.StatusNotFound, err)
+			return
+		}
+		if strings.Contains(err.Error(), "within 2 hours") || strings.Contains(err.Error(), "already completed") {
+			utils.WriteError(w, http.StatusBadRequest, err)
+			return
+		}
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, map[string]string{
+		"message": "Activity completed successfully",
+	})
 }
 
 func (h *Handler) GetActivityNotAvaialbaleAtday(w http.ResponseWriter, r *http.Request) {

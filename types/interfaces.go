@@ -23,8 +23,11 @@ type FeedBackStore interface {
 	CreateFeedBack(idFeedBack, idCustomer, comment string) error
 }
 type UserStore interface {
+	IsClientAdminActivity(idProfile string) (bool, string, error)
+	AssignClientToAdminActivity(idClient string) error
 	GetUserByEmail(email string) (*User, error)
 	GetAdminByEmail(email string) (*UserAdmin, error)
+	GetAllClients() ([]ClientInfo, error)
 	UpdateClientLocation(idClient string, longitude, latitude float64) error
 	GetUserById(user User) (*User, error)
 	CreateUser(user interface{}, idUser string, token string, hashedPassword string) error
@@ -46,6 +49,7 @@ type UserStore interface {
 
 type ActiviteStore interface {
 	// GetActivite() (*[]Activite, error)
+    UpdateClientActivityStatus(idClientActivity string) error
 	GetRecentActivities(idClient string) (*[]ActivityProfile, error)
 	GetActiviteById(id string) (*Activity, error)
 	GetActivityByTypes(typeActivite string) (*[]Activity, error)
@@ -75,10 +79,10 @@ type RestaurantStore interface {
 	CountReservationLastMonth(idRestaurant string) (*[]ReservationStats, error)
 	GetTableOccupationToday(idRestaurant string) ([]TableOccupation, error)
 	GetTopFoodsThisWeek(idRestaurant string) ([]FoodPopularity, error)
-	CreateRestaurantWorker(id string,idRestaurant string ,worker RestaurantWorkerCreation) error
+	CreateRestaurantWorker(id string, idRestaurant string, worker RestaurantWorkerCreation) error
 	CreateRestaurant(idRestaurant, idAdminRestaurant, name, image string, longitude, latitude float64, description string, capacity int, location string) error
 	AddFoodToMenu(idMenuFood, idMenu, idFood string) error
-    SetFoodStatusInMenu( idFood, status string) error
+	SetFoodStatusInMenu(idFood, status string) error
 	UpdateRestaurantWorker(id string, worker RestaurantWorker) error
 	SetRestaurantWorkerStatus(idRestaurantWorker string, status string) error
 	UpdateFood(idFood string, food Food) error

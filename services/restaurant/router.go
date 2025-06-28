@@ -371,7 +371,7 @@ func (h *Handler) CreateRestaurantWorker(w http.ResponseWriter, r *http.Request)
 		worker.Image = imageURL
 	}
 
-	if err := h.store.CreateRestaurantWorker(id,idRestaurant, worker); err != nil {
+	if err := h.store.CreateRestaurantWorker(id, idRestaurant, worker); err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}

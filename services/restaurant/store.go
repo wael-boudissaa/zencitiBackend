@@ -491,13 +491,24 @@ func (s *store) CreateRestaurant(idRestaurant, idAdminRestaurant, name, image st
 }
 
 func (s *store) CreateRestaurantWorker(id, idRestaurant string, worker types.RestaurantWorkerCreation) error {
+	checkQuery := `SELECT COUNT(*) FROM restaurantWorkers WHERE email = ?`
+	var count int
+	err := s.db.QueryRow(checkQuery, worker.Email).Scan(&count)
+	if err != nil {
+		return fmt.Errorf("error checking email existence: %v", err)
+	}
+
+	if count > 0 {
+		return fmt.Errorf("email %s already exists", worker.Email)
+	}
+
 	query := `
         INSERT INTO restaurantWorkers (
             idRestaurantWorker, idRestaurant, firstName, lastName, email, phoneNumber, quote,
             startWorking, nationnallity, nativeLanguage, rating, address, image, status
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
     `
-	_, err := s.db.Exec(query,
+	_, err = s.db.Exec(query,
 		id, idRestaurant, worker.FirstName, worker.LastName,
 		worker.Email, worker.PhoneNumber, worker.Quote, time.Now(), worker.Nationnallity,
 		worker.NativeLanguage, 0, worker.Address, worker.Image,

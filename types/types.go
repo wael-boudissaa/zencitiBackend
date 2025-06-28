@@ -10,6 +10,14 @@ type Profile struct {
 	Address   string `json:"address"`
 	Phone     string `json:"phone"`
 }
+type ClientInfo struct {
+	IdClient        string `json:"idClient"`
+	FirstName       string `json:"firstName"`
+	LastName        string `json:"lastName"`
+	Email           string `json:"email"`
+	Username        string `json:"username"`
+	IsAdminActivity bool   `json:"isAdminActivity"`
+}
 
 type UserInformation struct {
 	IdClient  string `json:"idClient"`
@@ -104,7 +112,7 @@ type RestaurantWorker struct {
 	IdRestaurant       string  `json:"idRestaurant"`
 	FirstName          string  `json:"firstName"`
 	LastName           string  `json:"lastName"`
-	Image              *string  `json:"image"`
+	Image              *string `json:"image"`
 	Email              string  `json:"email"`
 	PhoneNumber        string  `json:"phoneNumber"`
 	Quote              string  `json:"quote"`
@@ -116,12 +124,12 @@ type RestaurantWorker struct {
 	Status             string  `json:"status"`
 }
 type RestaurantWorkerCreation struct {
-	FirstName   string `json:"firstName"`
-	LastName    string `json:"lastName"`
-	Email       string `json:"email"`
-	PhoneNumber string `json:"phoneNumber"`
-	Quote       string `json:"quote"`
-	Image       string `json:"image"`
+	FirstName      string `json:"firstName"`
+	LastName       string `json:"lastName"`
+	Email          string `json:"email"`
+	PhoneNumber    string `json:"phoneNumber"`
+	Quote          string `json:"quote"`
+	Image          string `json:"image"`
 	Nationnallity  string `json:"nationnallity"`
 	NativeLanguage string `json:"nativeLanguage"`
 	Address        string `json:"address"`

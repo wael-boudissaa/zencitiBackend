@@ -2,6 +2,75 @@ package types
 
 import "time"
 
+type OrderInformation struct {
+	IdOrder         string          `json:"idOrder"`
+	TotalPrice      float64         `json:"totalPrice"`
+	Status          string          `json:"status"`
+	CreatedAt       time.Time       `json:"createdAt"`
+	ClientFirstName string          `json:"clientFirstName"`
+	ClientLastName  string          `json:"clientLastName"`
+	ClientEmail     string          `json:"clientEmail"`
+	ClientPhone     string          `json:"clientPhone"`
+	ClientAddress   string          `json:"clientAddress"`
+	ClientUsername  string          `json:"clientUsername"`
+	ReservationTime time.Time       `json:"reservationTime"`
+	NumberOfPeople  int             `json:"numberOfPeople"`
+	FoodItems       []OrderFoodItem `json:"foodItems"`
+}
+
+type OrderFoodItem struct {
+	IdFood      string  `json:"idFood"`
+	Name        string  `json:"name"`
+	Description string  `json:"description"`
+	Image       string  `json:"image"`
+	Price       float64 `json:"price"`
+	Quantity    int     `json:"quantity"`
+	Subtotal    float64 `json:"subtotal"`
+}
+type RestaurantReservationDetail struct {
+	IdReservation  string    `json:"idReservation"`
+	TimeFrom       time.Time `json:"timeFrom"`
+	FullName       string    `json:"fullName"`
+	TableId        string    `json:"tableId"`
+	NumberOfPeople int       `json:"numberOfPeople"`
+	Status         string    `json:"status"`
+	CreatedAt      time.Time `json:"createdAt"`
+}
+type ReservationIdDetails struct {
+	IdReservation   string               `json:"idReservation"`
+	TimeFrom        time.Time            `json:"timeFrom"`
+	NumberOfPeople  int                  `json:"numberOfPeople"`
+	Status          string               `json:"status"`
+	CreatedAt       time.Time            `json:"createdAt"`
+	FullName        string               `json:"fullName"`
+	FirstName       string               `json:"firstName"`
+	LastName        string               `json:"lastName"`
+	Email           string               `json:"email"`
+	PhoneNumber     string               `json:"phoneNumber"`
+	TotalVisits     int                  `json:"totalVisits"`
+	AverageSpending float64              `json:"averageSpending"`
+	TotalSpent      float64              `json:"totalSpent"`
+	FavoriteFood    string               `json:"favoriteFood"`
+	TotalOrders     int                  `json:"totalOrders"`
+	Orders          []ClientOrderSummary `json:"orders"`
+}
+
+type ClientOrderSummary struct {
+	IdOrder    string    `json:"idOrder"`
+	TotalPrice float64   `json:"totalPrice"`
+	CreatedAt  time.Time `json:"createdAt"`
+	ItemCount  int       `json:"itemCount"`
+    Status     string    `json:"status"`
+}
+
+type PaginatedReservations struct {
+	Reservations []RestaurantReservationDetail `json:"reservations"`
+	CurrentPage  int                           `json:"currentPage"`
+	TotalPages   int                           `json:"totalPages"`
+	TotalCount   int                           `json:"totalCount"`
+	HasNext      bool                          `json:"hasNext"`
+	HasPrevious  bool                          `json:"hasPrevious"`
+}
 type Profile struct {
 	IdProfile string `json:"idProfile"`
 	FirstName string `json:"firstName"`
@@ -22,12 +91,12 @@ type ClientReservationInfo struct {
 	IdRestaurant       string    `json:"idRestaurant"`
 }
 type ClientActivityInfo struct {
-    IdClientActivity     string    `json:"idClientActivity"`
-    TimeActivity         time.Time `json:"timeActivity"`
-    Status              string    `json:"status"`
-    ActivityName        string    `json:"activityName"`
-    ActivityImage       string    `json:"activityImage"`
-    ActivityDescription string    `json:"activityDescription"`
+	IdClientActivity    string    `json:"idClientActivity"`
+	TimeActivity        time.Time `json:"timeActivity"`
+	Status              string    `json:"status"`
+	ActivityName        string    `json:"activityName"`
+	ActivityImage       string    `json:"activityImage"`
+	ActivityDescription string    `json:"activityDescription"`
 }
 type ClientInfo struct {
 	IdClient        string `json:"idClient"`

@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/wael-boudissaa/zencitiBackend/types"
@@ -61,13 +62,17 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/reservation/today/{restaurantId}", h.GetReservationToday).Methods("GET")
 	r.HandleFunc("/reservation/{idReservation}/status", h.UpdateReservationStatus).Methods("PUT")
 	r.HandleFunc("/reservation/upcoming/{restaurantId}", h.GetUpcomingReservations).Methods("GET")
+	r.HandleFunc("/restaurant/{idRestaurant}/reservations", h.GetAllRestaurantReservations).Methods("GET")
+	r.HandleFunc("/reservation/{idReservation}/details", h.GetReservationDetails).Methods("GET")
 
 	//!NOTE: ORDER
 	r.HandleFunc("/order", h.CreateOrder).Methods("POST")
+	r.HandleFunc("/order/{idOrder}", h.GetOrderInformation).Methods("GET")
 	r.HandleFunc("/wael/{restaurantId}", h.GetOrderStats).Methods("GET")
 	r.HandleFunc("/waela/{clientId}", h.GetClientInf).Methods("GET")
 	r.HandleFunc("/order/place", h.PostOrderClient).Methods("POST")
 	r.HandleFunc("/food/{menuId}", h.GetFoodByMenu).Methods("GET")
+	r.HandleFunc("/order/{idOrder}/status", h.UpdateOrderStatus).Methods("PUT")
 
 	r.HandleFunc("/menu", h.CreateMenu).Methods("POST")
 	r.HandleFunc("/food/{idFood}", h.GetFoodById).Methods("GET")
@@ -79,6 +84,122 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	//!NOTE:NOTIFICATIONI NOT THIS PLACE
 	r.HandleFunc("/notification", h.CreateNotification).Methods("POST")
 	r.HandleFunc("/notification", h.GetNotifications).Methods("GET")
+}
+
+func (h *Handler) GetReservationDetails(w http.ResponseWriter, r *http.Request) {
+	idReservation := mux.Vars(r)["idReservation"]
+	if idReservation == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idReservation is required"))
+		return
+	}
+
+	details, err := h.store.GetReservationDetails(idReservation)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			utils.WriteError(w, http.StatusNotFound, err)
+			return
+		}
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, details)
+}
+
+func (h *Handler) GetAllRestaurantReservations(w http.ResponseWriter, r *http.Request) {
+	idRestaurant := mux.Vars(r)["idRestaurant"]
+	if idRestaurant == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idRestaurant is required"))
+		return
+	}
+
+	// Get page parameter (default to 1)
+	pageStr := r.URL.Query().Get("page")
+	page := 1
+	if pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	// Fixed limit of 6 per page
+	limit := 6
+
+	reservations, err := h.store.GetAllRestaurantReservations(idRestaurant, page, limit)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, reservations)
+}
+
+func (h *Handler) UpdateOrderStatus(w http.ResponseWriter, r *http.Request) {
+	idOrder := mux.Vars(r)["idOrder"]
+	if idOrder == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idOrder is required"))
+		return
+	}
+
+	var req struct {
+		Status string `json:"status"`
+	}
+	if err := utils.ParseJson(r, &req); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	// Validate status
+	validStatuses := []string{"pending", "completed", "cancelled"}
+	isValid := false
+	for _, validStatus := range validStatuses {
+		if req.Status == validStatus {
+			isValid = true
+			break
+		}
+	}
+	if !isValid {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid status. Valid statuses are: pending, completed, cancelled"))
+		return
+	}
+
+	err := h.store.UpdateOrderStatus(idOrder, req.Status)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			utils.WriteError(w, http.StatusNotFound, err)
+			return
+		}
+		if strings.Contains(err.Error(), "already completed") {
+			utils.WriteError(w, http.StatusBadRequest, err)
+			return
+		}
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, map[string]string{
+		"message": fmt.Sprintf("Order status updated to %s successfully", req.Status),
+	})
+}
+
+func (h *Handler) GetOrderInformation(w http.ResponseWriter, r *http.Request) {
+	idOrder := mux.Vars(r)["idOrder"]
+	if idOrder == "" {
+		utils.WriteError(w, http.StatusBadRequest, errors.New("idOrder is required"))
+		return
+	}
+
+	orderInfo, err := h.store.GetOrderInformation(idOrder)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			utils.WriteError(w, http.StatusNotFound, err)
+			return
+		}
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, orderInfo)
 }
 
 func (h *Handler) GetAllClientReservations(w http.ResponseWriter, r *http.Request) {

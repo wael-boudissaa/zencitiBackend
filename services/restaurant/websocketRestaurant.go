@@ -7,8 +7,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/wael-boudissaa/zencitiBackend/types"
 	"github.com/wael-boudissaa/zencitiBackend/utils"
-	// "github.com/wael-boudissaa/zencitiBackend/types"
-	// "github.com/wael-boudissaa/zencitiBackend/utils"
 )
 
 type Client struct {
@@ -25,17 +23,17 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-var clients = make(map[string][]*Client) 
+var clients = make(map[string][]*Client)
 
 func handleWebSocket(w http.ResponseWriter, r *http.Request) {
-var statusTables types.GetStatusTables
-    result := utils.ParseJson(r, &statusTables)
-    if result != nil {
-        utils.WriteError(w, http.StatusBadRequest, result)
-        return
-    }
-   restaurantID := statusTables.RestaurantId 
-    timeSlot := statusTables.TimeSlot
+	var statusTables types.GetStatusTables
+	result := utils.ParseJson(r, &statusTables)
+	if result != nil {
+		utils.WriteError(w, http.StatusBadRequest, result)
+		return
+	}
+	restaurantID := statusTables.RestaurantId
+	timeSlot := statusTables.TimeSlot
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -43,9 +41,7 @@ var statusTables types.GetStatusTables
 		return
 	}
 
-// restaurantID + "|" + timeSlot + "|" + tableID
 	client := &Client{conn: conn, restaurantID: restaurantID, timeSlot: timeSlot, send: make(chan []byte)}
-	// clients[key] = append(clients[key], client)
 
 	go readPump(client)
 	go writePump(client)
@@ -77,7 +73,6 @@ func writePump(client *Client) {
 		select {
 		case message, ok := <-client.send:
 			if !ok {
-				// Channel closed, connection is done
 				client.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}

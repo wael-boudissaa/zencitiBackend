@@ -1,6 +1,5 @@
 package types
 
-
 import "time"
 
 type ProfileStore interface {
@@ -50,14 +49,14 @@ type UserStore interface {
 
 type ActiviteStore interface {
 	// GetActivite() (*[]Activite, error)
-    UpdateClientActivityStatus(idClientActivity string) error
+	UpdateClientActivityStatus(idClientActivity string) error
 	GetRecentActivities(idClient string) (*[]ActivityProfile, error)
 	GetActiviteById(id string) (*Activity, error)
 	GetActivityByTypes(typeActivite string) (*[]Activity, error)
 	GetActiviteTypes() (*[]ActivitetType, error)
 	CreateActivityClient(idClientActivity string, act ActivityCreation) error
 	GetActivityNotAvaialableAtday(day time.Time, idActivity string) ([]string, error)
-    GetAllClientActivities(idClient string) ([]ClientActivityInfo, error)
+	GetAllClientActivities(idClient string) ([]ClientActivityInfo, error)
 	GetPopularActivities() (*[]Activity, error)
 }
 
@@ -66,13 +65,17 @@ type RestaurantStore interface {
 	GetRestaurantRatingStats(idRestaurant string) (*RestaurantRatingStats, error)
 	GetReservationStatsAndList(idRestaurant string) (*ReservationStatsAndList, error)
 	GetFoodRestaurant(idRestaurant string) (*[]Food, error)
-    GetAllClientReservations(idClient string) ([]ClientReservationInfo, error)
+	GetAllClientReservations(idClient string) ([]ClientReservationInfo, error)
 	CountFirstTimeReservers(idRestaurant string) (int, error)
 	GetRestaurantTables(restaurantId string, timeSlot time.Time) (*[]RestaurantTableStatus, error)
 	GetRecentOrders(idRestaurant string, limit int) ([]RecentOrder, error)
 	GetRestaurant() (*[]Restaurant, error)
 	GetRestaurantById(id string) (*Restaurant, error)
 	CreateReservation(idReservation string, reservation ReservationCreation) error
+	GetOrderInformation(idOrder string) (*OrderInformation, error)
+	UpdateOrderStatus(idOrder string, status string) error
+	GetAllRestaurantReservations(idRestaurant string, page, limit int) (*PaginatedReservations, error)
+    GetReservationDetails(idReservation string) (*ReservationIdDetails, error)
 	GetRecentReviews(idRestaurant string) ([]*Rating, error)
 	CreateOrder(idOrder string, order OrderCreation) error
 	GetReservationTodayByRestaurantId(idRestaurant string) (*[]ReservationListInformation, error)

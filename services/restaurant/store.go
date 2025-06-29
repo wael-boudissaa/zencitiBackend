@@ -19,6 +19,344 @@ func NewStore(db *sql.DB) *store {
 	return &store{db: db}
 }
 
+func (s *store) GetReservationDetails(idReservation string) (*types.ReservationIdDetails, error) {
+	reservationQuery := `
+        SELECT 
+            r.idReservation,
+            r.idClient,
+            r.timeFrom,
+            r.numberOfPeople,
+            r.status,
+            r.createdAt,
+            CONCAT(p.firstName, ' ', p.lastName) as fullName,
+            p.firstName,
+            p.lastName,
+            p.email,
+            p.phoneNumber
+        FROM reservation r
+        JOIN client c ON r.idClient = c.idClient
+        JOIN profile p ON c.idProfile = p.idProfile
+        WHERE r.idReservation = ?
+    `
+
+	row := s.db.QueryRow(reservationQuery, idReservation)
+	var details types.ReservationIdDetails
+	var idClient string
+
+	err := row.Scan(
+		&details.IdReservation,
+		&idClient,
+		&details.TimeFrom,
+		&details.NumberOfPeople,
+		&details.Status,
+		&details.CreatedAt,
+		&details.FullName,
+		&details.FirstName,
+		&details.LastName,
+		&details.Email,
+		&details.PhoneNumber,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("reservation with ID %s not found", idReservation)
+		}
+		return nil, fmt.Errorf("error retrieving reservation details: %v", err)
+	}
+
+	// Get client statistics (overall for the client)
+	statsQuery := `
+        SELECT 
+            COUNT(DISTINCT r.idReservation) as totalVisits,
+            IFNULL(AVG(ol.totalPrice), 0) as averageSpending,
+            IFNULL(SUM(ol.totalPrice), 0) as totalSpent
+        FROM reservation r
+        LEFT JOIN orderList ol ON r.idReservation = ol.idReservation AND ol.status = 'completed'
+        WHERE r.idClient = ?
+    `
+
+	err = s.db.QueryRow(statsQuery, idClient).Scan(
+		&details.TotalVisits,
+		&details.AverageSpending,
+		&details.TotalSpent,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving client statistics: %v", err)
+	}
+
+	// Get total orders for THIS specific reservation
+	orderCountQuery := `
+        SELECT COUNT(*) as totalOrders
+        FROM orderList ol
+        WHERE ol.idReservation = ?
+    `
+
+	err = s.db.QueryRow(orderCountQuery, idReservation).Scan(&details.TotalOrders)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving order count for reservation: %v", err)
+	}
+
+	// Get favorite food (for the client overall)
+	favoriteQuery := `
+        SELECT f.name
+        FROM orderFood orderFood
+        JOIN food f ON orderFood.idFood = f.idFood
+        JOIN orderList ol ON orderFood.idOrder = ol.idOrder
+        JOIN reservation r ON ol.idReservation = r.idReservation
+        WHERE r.idClient = ?
+        GROUP BY f.idFood
+        ORDER BY SUM(orderFood.quantity) DESC
+        LIMIT 1
+    `
+
+	err = s.db.QueryRow(favoriteQuery, idClient).Scan(&details.FavoriteFood)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, fmt.Errorf("error retrieving favorite food: %v", err)
+	}
+	if err == sql.ErrNoRows {
+		details.FavoriteFood = "No orders yet"
+	}
+
+	// Get list of orders for THIS SPECIFIC RESERVATION ONLY
+	ordersQuery := `
+        SELECT 
+            ol.idOrder,
+            ol.totalPrice,
+            ol.createdAt,
+            ol.status,
+            COUNT(orderFood.idFood) as itemCount
+        FROM orderList ol
+        LEFT JOIN orderFood orderFood ON ol.idOrder = orderFood.idOrder
+        WHERE ol.idReservation = ?
+        GROUP BY ol.idOrder
+        ORDER BY ol.createdAt DESC
+    `
+
+	rows, err := s.db.Query(ordersQuery, idReservation)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving reservation orders: %v", err)
+	}
+	defer rows.Close()
+
+	var orders []types.ClientOrderSummary
+	for rows.Next() {
+		var order types.ClientOrderSummary
+		err := rows.Scan(
+			&order.IdOrder,
+			&order.TotalPrice,
+			&order.CreatedAt,
+			&order.Status,
+			&order.ItemCount,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning order: %v", err)
+		}
+		orders = append(orders, order)
+	}
+
+	details.Orders = orders
+	return &details, nil
+}
+
+func (s *store) GetAllRestaurantReservations(idRestaurant string, page, limit int) (*types.PaginatedReservations, error) {
+	offset := (page - 1) * limit
+
+	// Get total count for pagination
+	countQuery := `
+        SELECT COUNT(*) 
+        FROM reservation r
+        JOIN client c ON r.idClient = c.idClient
+        JOIN profile p ON c.idProfile = p.idProfile
+        WHERE r.idRestaurant = ?
+    `
+	var totalCount int
+	err := s.db.QueryRow(countQuery, idRestaurant).Scan(&totalCount)
+	if err != nil {
+		return nil, fmt.Errorf("error counting reservations: %v", err)
+	}
+
+	// Get reservations with pagination
+	query := `
+        SELECT 
+            r.idReservation,
+            r.timeFrom,
+            CONCAT(p.firstName, ' ', p.lastName) as fullName,
+            r.idTable,
+            r.numberOfPeople,
+            r.status,
+            r.createdAt
+        FROM reservation r
+        JOIN client c ON r.idClient = c.idClient
+        JOIN profile p ON c.idProfile = p.idProfile
+        WHERE r.idRestaurant = ?
+        ORDER BY r.timeFrom DESC
+        LIMIT ? OFFSET ?
+    `
+
+	rows, err := s.db.Query(query, idRestaurant, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving reservations: %v", err)
+	}
+	defer rows.Close()
+
+	var reservations []types.RestaurantReservationDetail
+	for rows.Next() {
+		var reservation types.RestaurantReservationDetail
+		var idTable sql.NullString
+
+		err := rows.Scan(
+			&reservation.IdReservation,
+			&reservation.TimeFrom,
+			&reservation.FullName,
+			&idTable,
+			&reservation.NumberOfPeople,
+			&reservation.Status,
+			&reservation.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning reservation: %v", err)
+		}
+
+		if idTable.Valid {
+			reservation.TableId = idTable.String
+		} else {
+			reservation.TableId = "Not assigned"
+		}
+
+		reservations = append(reservations, reservation)
+	}
+
+	totalPages := (totalCount + limit - 1) / limit
+
+	return &types.PaginatedReservations{
+		Reservations: reservations,
+		CurrentPage:  page,
+		TotalPages:   totalPages,
+		TotalCount:   totalCount,
+		HasNext:      page < totalPages,
+		HasPrevious:  page > 1,
+	}, nil
+}
+
+func (s *store) GetOrderInformation(idOrder string) (*types.OrderInformation, error) {
+	profileQuery := `
+        SELECT 
+            ol.idOrder,
+            ol.totalPrice,
+            ol.status,
+            ol.createdAt,
+            profile.firstName,
+            profile.lastName,
+            profile.email,
+            profile.phoneNumber,
+            profile.address,
+            client.username,
+            r.timeFrom,
+            r.numberOfPeople
+        FROM orderList ol
+        JOIN reservation r ON ol.idReservation = r.idReservation
+        JOIN client ON r.idClient = client.idClient
+        JOIN profile ON client.idProfile = profile.idProfile
+        WHERE ol.idOrder = ?
+    `
+
+	row := s.db.QueryRow(profileQuery, idOrder)
+	var orderInfo types.OrderInformation
+	err := row.Scan(
+		&orderInfo.IdOrder,
+		&orderInfo.TotalPrice,
+		&orderInfo.Status,
+		&orderInfo.CreatedAt,
+		&orderInfo.ClientFirstName,
+		&orderInfo.ClientLastName,
+		&orderInfo.ClientEmail,
+		&orderInfo.ClientPhone,
+		&orderInfo.ClientAddress,
+		&orderInfo.ClientUsername,
+		&orderInfo.ReservationTime,
+		&orderInfo.NumberOfPeople,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("order with ID %s not found", idOrder)
+		}
+		return nil, fmt.Errorf("error retrieving order information: %v", err)
+	}
+
+	foodQuery := `
+        SELECT 
+            food.idFood,
+            food.name,
+            food.description,
+            food.image,
+            food.price,
+            orderFood.quantity,
+            (food.price * orderFood.quantity) as subtotal
+        FROM orderFood 
+        JOIN food ON orderFood.idFood = food.idFood
+        WHERE orderFood.idOrder = ?
+    `
+
+	rows, err := s.db.Query(foodQuery, idOrder)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving food items: %v", err)
+	}
+	defer rows.Close()
+
+	var foodItems []types.OrderFoodItem
+	for rows.Next() {
+		var foodItem types.OrderFoodItem
+		err := rows.Scan(
+			&foodItem.IdFood,
+			&foodItem.Name,
+			&foodItem.Description,
+			&foodItem.Image,
+			&foodItem.Price,
+			&foodItem.Quantity,
+			&foodItem.Subtotal,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning food item: %v", err)
+		}
+		foodItems = append(foodItems, foodItem)
+	}
+
+	orderInfo.FoodItems = foodItems
+	return &orderInfo, nil
+}
+
+func (s *store) UpdateOrderStatus(idOrder string, status string) error {
+	var currentStatus string
+	checkQuery := `SELECT status FROM orderList WHERE idOrder = ?`
+	err := s.db.QueryRow(checkQuery, idOrder).Scan(&currentStatus)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("order with ID %s not found", idOrder)
+		}
+		return fmt.Errorf("error checking order status: %v", err)
+	}
+
+	if currentStatus == "completed" && status == "completed" {
+		return fmt.Errorf("order is already completed")
+	}
+
+	updateQuery := `UPDATE orderList SET status = ? WHERE idOrder = ?`
+	result, err := s.db.Exec(updateQuery, status, idOrder)
+	if err != nil {
+		return fmt.Errorf("error updating order status: %v", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error checking rows affected: %v", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("no rows were updated")
+	}
+
+	return nil
+}
+
 func (s *store) GetAllClientReservations(idClient string) ([]types.ClientReservationInfo, error) {
 	query := `
         SELECT 
@@ -1569,16 +1907,16 @@ func (s *store) GetRecentReviews(idRestaurant string) ([]*types.Rating, error) {
 
 func (s *store) GetRecentOrders(idRestaurant string, limit int) ([]types.RecentOrder, error) {
 	query := `SELECT orderList.idOrder, profile.firstName, profile.lastName, orderList.createdAt,client.idClient ,reservation.timeFrom,
-		COUNT(orderFood.idFood) AS itemCount, orderList.totalPrice, orderList.status 
-		FROM orderList 
-		JOIN reservation ON orderList.idReservation = reservation.idReservation 
-		JOIN client ON reservation.idClient = client.idClient 
-		JOIN profile ON client.idProfile = profile.idProfile 
-		JOIN orderFood ON orderList.idOrder = orderFood.idOrder 
-		WHERE reservation.idRestaurant = ? 
-		GROUP BY orderList.idOrder 
-		ORDER BY orderList.createdAt DESC 
-		LIMIT ?`
+        COUNT(orderFood.idFood) AS itemCount, orderList.totalPrice, orderList.status 
+        FROM orderList 
+        JOIN reservation ON orderList.idReservation = reservation.idReservation 
+        JOIN client ON reservation.idClient = client.idClient 
+        JOIN profile ON client.idProfile = profile.idProfile 
+        JOIN orderFood ON orderList.idOrder = orderFood.idOrder 
+        WHERE reservation.idRestaurant = ? AND reservation.status = 'confirmed'
+        GROUP BY orderList.idOrder 
+        ORDER BY orderList.createdAt DESC 
+        LIMIT ?`
 
 	rows, err := s.db.Query(query, idRestaurant, limit)
 	if err != nil {
@@ -1697,7 +2035,9 @@ func (s *store) GetClientReservationAndOrderDetails(idClient string) (*types.Cli
 			}
 			orderIDs = append(orderIDs, idOrder)
 			totalOrders++
-			totalSpent += totalPrice
+			if status == "completed" {
+				totalSpent += totalPrice
+			}
 		}
 
 		orderMap[idOrder].FoodItems = append(orderMap[idOrder].FoodItems, types.FoodItemInformation{

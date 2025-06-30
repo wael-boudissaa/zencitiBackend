@@ -23,6 +23,7 @@ func NewHandler(s types.RestaurantStore) *Handler {
 
 func (h *Handler) RegisterRouter(r *mux.Router) {
 	//!NOTE: RESTAURANT INFORMATIONS
+	r.HandleFunc("/worker/{idRestaurantWorker}/details", h.GetRestaurantWorkerWithRatings).Methods("GET")
 	r.HandleFunc("/restaurant", h.GetRestaurant).Methods("GET")
 	r.HandleFunc("/restaurant", h.CreateRestaurant).Methods("POST")
 	r.HandleFunc("/restaurant/count/{restaurantId}", h.RestaurantCountInformation).Methods("GET")
@@ -51,6 +52,7 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/restaurant/menu/stats/{restaurantId}", h.GetRestaurantMenuStats).Methods("GET")
 	r.HandleFunc("/restaurant/food/{restaurantId}", h.GetFoodRestaurant).Methods("GET")
 	r.HandleFunc("/restaurant/addfood/{idMenu}", h.AddFoodToMenu).Methods("POST")
+	r.HandleFunc("/menu/{idMenu}/activate/{idRestaurant}", h.SetMenuActive).Methods("PUT")
 	//!NOTE: REVIEWS
 	r.HandleFunc("/reviews/{idRestaurant}", h.GetRecentReviewsRestaurant).Methods("GET")
 	r.HandleFunc("/friends/reviews", h.GetFriendsReviewsRestaurant).Methods("POST")
@@ -81,12 +83,60 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/food/{idFood}/status", h.SetFoodStatusInMenu).Methods("PUT")
 
 	r.HandleFunc("/client/{idClient}/reservations", h.GetAllClientReservations).Methods("GET")
+
 	//!NOTE:NOTIFICATIONI NOT THIS PLACE
 	r.HandleFunc("/notification", h.CreateNotification).Methods("POST")
 	r.HandleFunc("/notification", h.GetNotifications).Methods("GET")
 
 	//!NOTE: Tables
 	r.HandleFunc("/restaurant/{idRestaurant}/tables/bulk", h.BulkUpdateRestaurantTables).Methods("PUT")
+}
+
+func (h *Handler) GetRestaurantWorkerWithRatings(w http.ResponseWriter, r *http.Request) {
+	idRestaurantWorker := mux.Vars(r)["idRestaurantWorker"]
+	if idRestaurantWorker == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idRestaurantWorker is required"))
+		return
+	}
+
+	worker, err := h.store.GetRestaurantWorkerWithRatings(idRestaurantWorker)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			utils.WriteError(w, http.StatusNotFound, err)
+			return
+		}
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, worker)
+}
+
+func (h *Handler) SetMenuActive(w http.ResponseWriter, r *http.Request) {
+	idMenu := mux.Vars(r)["idMenu"]
+	idRestaurant := mux.Vars(r)["idRestaurant"]
+
+	if idMenu == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idMenu is required"))
+		return
+	}
+
+	if idRestaurant == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idRestaurant is required"))
+		return
+	}
+
+	err := h.store.SetMenuActive(idMenu, idRestaurant)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			utils.WriteError(w, http.StatusNotFound, err)
+			return
+		}
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, idMenu)
 }
 
 func (h *Handler) BulkUpdateRestaurantTables(w http.ResponseWriter, r *http.Request) {

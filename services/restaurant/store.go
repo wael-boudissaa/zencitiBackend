@@ -500,13 +500,206 @@ func (s *store) SetFoodStatusInMenu(idFood, status string) error {
 	return err
 }
 
+func (s *store) SetMenuActive(idMenu, idRestaurant string) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("error starting transaction: %v", err)
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	var menuExists int
+	checkQuery := `SELECT COUNT(*) FROM menu WHERE idMenu = ? AND idRestaurant = ?`
+	err = tx.QueryRow(checkQuery, idMenu, idRestaurant).Scan(&menuExists)
+	if err != nil {
+		return fmt.Errorf("error checking menu existence: %v", err)
+	}
+	if menuExists == 0 {
+		return fmt.Errorf("menu with ID %s not found for restaurant %s", idMenu, idRestaurant)
+	}
+
+	deactivateQuery := `UPDATE menu SET active = 0 WHERE idRestaurant = ?`
+	_, err = tx.Exec(deactivateQuery, idRestaurant)
+	if err != nil {
+		return fmt.Errorf("error deactivating existing menus: %v", err)
+	}
+
+	// Activate the selected menu
+	activateQuery := `UPDATE menu SET active = 1 WHERE idMenu = ? AND idRestaurant = ?`
+	result, err := tx.Exec(activateQuery, idMenu, idRestaurant)
+	if err != nil {
+		return fmt.Errorf("error activating menu: %v", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error checking rows affected: %v", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("no menu was activated")
+	}
+
+	// Commit the transaction
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("error committing transaction: %v", err)
+	}
+
+	return nil
+}
+
+func (s *store) GetRestaurantWorkerWithRatings(idRestaurantWorker string) (*types.RestaurantWorkerWithRatings, error) {
+	// Get worker information
+	workerQuery := `
+        SELECT 
+            idRestaurantWorker,
+            firstName,
+            lastName,
+            email,
+            phoneNumber,
+            IFNULL(quote, '') as quote,
+            startWorking,
+            IFNULL(nationnallity, '') as nationnallity,
+            IFNULL(nativeLanguage, '') as nativeLanguage,
+            IFNULL(rating, 0) as rating,
+            IFNULL(image, '') as image,
+            IFNULL(address, '') as address,
+            status,
+            idRestaurant
+        FROM restaurantWorkers 
+        WHERE idRestaurantWorker = ?
+    `
+
+	row := s.db.QueryRow(workerQuery, idRestaurantWorker)
+	var worker types.RestaurantWorkerWithRatings
+
+	err := row.Scan(
+		&worker.IdRestaurantWorker,
+		&worker.FirstName,
+		&worker.LastName,
+		&worker.Email,
+		&worker.PhoneNumber,
+		&worker.Quote,
+		&worker.StartWorking,
+		&worker.Nationnallity,
+		&worker.NativeLanguage,
+		&worker.Rating,
+		&worker.Image,
+		&worker.Address,
+		&worker.Status,
+		&worker.IdRestaurant,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("restaurant worker with ID %s not found", idRestaurantWorker)
+		}
+		return nil, fmt.Errorf("error retrieving restaurant worker: %v", err)
+	}
+
+	// Get recent ratings for this worker
+	ratingsQuery := `
+        SELECT 
+            r.rating,
+            IFNULL(r.comment, '') as comment,
+            r.createdAt,
+            p.firstName,
+            p.lastName
+        FROM rating r
+        JOIN client c ON r.idClient = c.idClient
+        JOIN profile p ON c.idProfile = p.idProfile
+        WHERE r.idRestaurantWorker = ? AND r.ratingType = 'worker'
+        ORDER BY r.createdAt DESC
+        LIMIT 10
+    `
+
+	rows, err := s.db.Query(ratingsQuery, idRestaurantWorker)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving worker ratings: %v", err)
+	}
+	defer rows.Close()
+
+	var ratings []types.WorkerRating
+	for rows.Next() {
+		var rating types.WorkerRating
+		err := rows.Scan(
+			&rating.RatingValue,
+			&rating.Comment,
+			&rating.CreatedAt,
+			&rating.ClientFirstName,
+			&rating.ClientLastName,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning worker rating: %v", err)
+		}
+		ratings = append(ratings, rating)
+	}
+
+	// Get rating statistics - handle NULL/empty case
+	statsQuery := `
+        SELECT 
+            IFNULL(COUNT(*), 0) as totalRatings,
+            IFNULL(AVG(rating), 0) as averageRating,
+            IFNULL(SUM(CASE WHEN rating = 5 THEN 1 ELSE 0 END), 0) AS count5Stars,
+            IFNULL(SUM(CASE WHEN rating = 4 THEN 1 ELSE 0 END), 0) AS count4Stars,
+            IFNULL(SUM(CASE WHEN rating = 3 THEN 1 ELSE 0 END), 0) AS count3Stars,
+            IFNULL(SUM(CASE WHEN rating = 2 THEN 1 ELSE 0 END), 0) AS count2Stars,
+            IFNULL(SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END), 0) AS count1Star
+        FROM rating
+        WHERE idRestaurantWorker = ? AND ratingType = 'worker'
+    `
+
+	var totalRatings, count5Stars, count4Stars, count3Stars, count2Stars, count1Star int
+	var averageRating float64
+
+	err = s.db.QueryRow(statsQuery, idRestaurantWorker).Scan(
+		&totalRatings,
+		&averageRating,
+		&count5Stars,
+		&count4Stars,
+		&count3Stars,
+		&count2Stars,
+		&count1Star,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving worker rating stats: %v", err)
+	}
+
+	// Calculate percentages
+	percent := func(count int) float64 {
+		if totalRatings == 0 {
+			return 0
+		}
+		return float64(count) * 100 / float64(totalRatings)
+	}
+
+	// Initialize ratings slice if nil
+	if ratings == nil {
+		ratings = []types.WorkerRating{}
+	}
+
+	worker.RecentRatings = ratings
+	worker.RatingStats = types.WorkerRatingStats{
+		TotalRatings:     totalRatings,
+		AverageRating:    averageRating,
+		Percentage5Stars: percent(count5Stars),
+		Percentage4Stars: percent(count4Stars),
+		Percentage3Stars: percent(count3Stars),
+		Percentage2Stars: percent(count2Stars),
+		Percentage1Star:  percent(count1Star),
+	}
+
+	return &worker, nil
+}
+
 func (s *store) GetFoodRestaurant(idRestaurant string) (*[]types.Food, error) {
 	query := `
         SELECT DISTINCT f.idFood, f.idCategory, f.name, f.description, f.image, f.price, f.status
         FROM food f
-        JOIN menufood mf ON f.idFood = mf.idFood
-        JOIN menu m ON mf.idMenu = m.idMenu
-        WHERE m.idRestaurant = ?
+        WHERE f.idRestaurant = ?
     `
 	rows, err := s.db.Query(query, idRestaurant)
 	if err != nil {
@@ -970,7 +1163,7 @@ where menu.active = 1 and food.status="available" and menu.idRestaurant = ?;
 			&menu.IdCategory,
 			&menu.Name,
 			&menu.Description,
-            &menu.IdRestaurant,
+			&menu.IdRestaurant,
 			&menu.Image,
 			&menu.Price,
 			&menu.Status,

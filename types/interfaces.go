@@ -72,6 +72,8 @@ type RestaurantStore interface {
 	GetRestaurant() (*[]Restaurant, error)
 	GetRestaurantById(id string) (*Restaurant, error)
 	BulkUpdateRestaurantTables(idRestaurant string, tables []Table) error
+    SetMenuActive(idMenu, idRestaurant string) error
+    GetRestaurantWorkerWithRatings(idRestaurantWorker string) (*RestaurantWorkerWithRatings, error)
 	CreateReservation(idReservation string, reservation ReservationCreation) error
 	GetOrderInformation(idOrder string) (*OrderInformation, error)
 	UpdateOrderStatus(idOrder string, status string) error

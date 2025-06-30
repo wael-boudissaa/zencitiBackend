@@ -245,9 +245,45 @@ type Menu struct {
 	CreatedAt    time.Time `json:"createdAt"`
 }
 type LayoutCreation struct {
-	Shape        string `json:"shape"` // New field
-	PosX         int    `json:"posX"`
-	PosY         int    `json:"posY"`
+	Shape string `json:"shape"` // New field
+	PosX  int    `json:"posX"`
+	PosY  int    `json:"posY"`
+}
+type RestaurantWorkerWithRatings struct {
+	IdRestaurantWorker string            `json:"idRestaurantWorker"`
+	FirstName          string            `json:"firstName"`
+	LastName           string            `json:"lastName"`
+	Email              string            `json:"email"`
+	PhoneNumber        string            `json:"phoneNumber"`
+	Quote              string            `json:"quote"`
+	StartWorking       time.Time         `json:"startWorking"`
+	Nationnallity      string            `json:"nationnallity"`
+	NativeLanguage     string            `json:"nativeLanguage"`
+	Rating             float64           `json:"rating"`
+	Image              *string           `json:"image"`
+	Address            string            `json:"address"`
+	Status             string            `json:"status"`
+	IdRestaurant       string            `json:"idRestaurant"`
+	RecentRatings      []WorkerRating    `json:"recentRatings"`
+	RatingStats        WorkerRatingStats `json:"ratingStats"`
+}
+
+type WorkerRating struct {
+	RatingValue     int       `json:"ratingValue"`
+	Comment         string    `json:"comment"`
+	CreatedAt       time.Time `json:"createdAt"`
+	ClientFirstName string    `json:"clientFirstName"`
+	ClientLastName  string    `json:"clientLastName"`
+}
+
+type WorkerRatingStats struct {
+	TotalRatings     int     `json:"totalRatings"`
+	AverageRating    float64 `json:"averageRating"`
+	Percentage5Stars float64 `json:"percentage5Stars"`
+	Percentage4Stars float64 `json:"percentage4Stars"`
+	Percentage3Stars float64 `json:"percentage3Stars"`
+	Percentage2Stars float64 `json:"percentage2Stars"`
+	Percentage1Star  float64 `json:"percentage1Star"`
 }
 
 type Table struct {
@@ -259,16 +295,16 @@ type Table struct {
 	IsAvailable  bool   `json:"is_available"`
 }
 type MenuInformationFood struct {
-	IdMenu      string  `json:"idMenu" db:"idMenu"`
-	IdFood      string  `json:"idFood" db:"idFood"`
-	IdCategory  string  `json:"idCategory" db:"idCategory"`
-	Name        string  `json:"name" db:"name"`
-	Description *string `json:"description" db:"description"`
-    IdRestaurant string  `json:"idRestaurant" db:"idRestaurant"`
-	Image       *string `json:"image" db:"image"`
-	Price       float64 `json:"price" db:"price"`
-	Status      string  `json:"status" db:"status"`
-	MenuName    string  `json:"menuName" db:"menuName"`
+	IdMenu       string  `json:"idMenu" db:"idMenu"`
+	IdFood       string  `json:"idFood" db:"idFood"`
+	IdCategory   string  `json:"idCategory" db:"idCategory"`
+	Name         string  `json:"name" db:"name"`
+	Description  *string `json:"description" db:"description"`
+	IdRestaurant string  `json:"idRestaurant" db:"idRestaurant"`
+	Image        *string `json:"image" db:"image"`
+	Price        float64 `json:"price" db:"price"`
+	Status       string  `json:"status" db:"status"`
+	MenuName     string  `json:"menuName" db:"menuName"`
 }
 type Food struct {
 	IdFood      string   `json:"idFood"`

@@ -60,7 +60,7 @@ type ClientOrderSummary struct {
 	TotalPrice float64   `json:"totalPrice"`
 	CreatedAt  time.Time `json:"createdAt"`
 	ItemCount  int       `json:"itemCount"`
-    Status     string    `json:"status"`
+	Status     string    `json:"status"`
 }
 
 type PaginatedReservations struct {
@@ -182,15 +182,15 @@ type RestaurantTable struct {
 
 type RestaurantTableStatus struct {
 	IdTable        *string    `json:"idTable"`
+	Shape          *string    `json:"shape"` // New field
 	PosX           *int       `json:"posX"`
 	PosY           *int       `json:"posY"`
-	IdReservation  *string    `json:"idReservation"`
 	IdRestaurant   *string    `json:"idRestaurant"`
+	IdReservation  *string    `json:"idReservation"`
 	NumberOfPeople *int       `json:"numberOfPeople"`
 	TimeFrom       *time.Time `json:"timeFrom"`
 	Status         *string    `json:"status"`
 }
-
 type FoodCategory struct {
 	IdCategory    string `json:"idCategory"`
 	NameCategorie string `json:"nameCategorie"`
@@ -244,21 +244,27 @@ type Menu struct {
 	Active       bool      `json:"active"`
 	CreatedAt    time.Time `json:"createdAt"`
 }
-type Table struct {
-	IdTable         string `json:"idTable"`
-	IdRestaurant    string `json:"idRestaurant"`
-	PosX            int    `json:"posX"`
-	PosY            int    `json:"posY"`
-	DurationMinutes int    `json:"duration_minutes"`
-	IsAvailable     bool   `json:"is_available"`
+type LayoutCreation struct {
+	Shape        string `json:"shape"` // New field
+	PosX         int    `json:"posX"`
+	PosY         int    `json:"posY"`
 }
 
+type Table struct {
+	IdTable      string `json:"idTable"`
+	IdRestaurant string `json:"idRestaurant"`
+	Shape        string `json:"shape"` // New field
+	PosX         int    `json:"posX"`
+	PosY         int    `json:"posY"`
+	IsAvailable  bool   `json:"is_available"`
+}
 type MenuInformationFood struct {
 	IdMenu      string  `json:"idMenu" db:"idMenu"`
 	IdFood      string  `json:"idFood" db:"idFood"`
 	IdCategory  string  `json:"idCategory" db:"idCategory"`
 	Name        string  `json:"name" db:"name"`
 	Description *string `json:"description" db:"description"`
+    IdRestaurant string  `json:"idRestaurant" db:"idRestaurant"`
 	Image       *string `json:"image" db:"image"`
 	Price       float64 `json:"price" db:"price"`
 	Status      string  `json:"status" db:"status"`

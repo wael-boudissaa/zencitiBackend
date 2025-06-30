@@ -9,6 +9,7 @@ import (
 	// "log"
 
 	"github.com/wael-boudissaa/zencitiBackend/types"
+	"github.com/wael-boudissaa/zencitiBackend/utils"
 )
 
 type store struct {
@@ -455,9 +456,9 @@ func (s *store) CreateMenu(idMenu, idRestaurant, name string) error {
 	return tx.Commit()
 }
 
-func (s *store) CreateFood(idFood, idCategory, idMenu, name, description, image string, price, status string) error {
-	query := `INSERT INTO food (idFood, idCategory, name, description, image, price, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-	_, err := s.db.Exec(query, idFood, idCategory, name, description, image, price, status)
+func (s *store) CreateFood(idFood, idCategory, idRestaurant, name, description, image string, price float64, status string) error {
+	query := `INSERT INTO food (idFood, idCategory, idRestaurant, name, description, image, price, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+	_, err := s.db.Exec(query, idFood, idCategory, idRestaurant, name, description, image, price, status)
 	return err
 }
 
@@ -545,7 +546,7 @@ func (s *store) DeleteTable(idTable string) error {
 }
 
 func (s *store) GetTablesByRestaurant(restaurantId string) ([]types.Table, error) {
-	query := `SELECT idTable, idRestaurant, posX, posY, duration_minutes, is_available FROM table_restaurant WHERE idRestaurant = ?`
+	query := `SELECT idTable, idRestaurant, shape, posX, posY, is_available FROM table_restaurant WHERE idRestaurant = ?`
 	rows, err := s.db.Query(query, restaurantId)
 	if err != nil {
 		return nil, err
@@ -554,7 +555,7 @@ func (s *store) GetTablesByRestaurant(restaurantId string) ([]types.Table, error
 	var tables []types.Table
 	for rows.Next() {
 		var t types.Table
-		if err := rows.Scan(&t.IdTable, &t.IdRestaurant, &t.PosX, &t.PosY, &t.DurationMinutes, &t.IsAvailable); err != nil {
+		if err := rows.Scan(&t.IdTable, &t.IdRestaurant, &t.Shape, &t.PosX, &t.PosY, &t.IsAvailable); err != nil {
 			return nil, err
 		}
 		tables = append(tables, t)
@@ -726,14 +727,14 @@ func (s *store) GetNotifications() ([]types.Notification, error) {
 }
 
 func (s *store) UpdateTable(idTable string, table types.Table) error {
-	query := `UPDATE table_restaurant SET posX=?, posY=?, duration_minutes=?, is_available=? WHERE idTable=?`
-	_, err := s.db.Exec(query, table.PosX, table.PosY, table.DurationMinutes, table.IsAvailable, idTable)
+	query := `UPDATE table_restaurant SET shape=?, posX=?, posY=?, is_available=? WHERE idTable=?`
+	_, err := s.db.Exec(query, table.Shape, table.PosX, table.PosY, table.IsAvailable, idTable)
 	return err
 }
 
 func (s *store) CreateTable(table types.Table) error {
-	query := `INSERT INTO table_restaurant (idTable, idRestaurant, posX, posY, duration_minutes, is_available) VALUES (?, ?, ?, ?, ?, ?)`
-	_, err := s.db.Exec(query, table.IdTable, table.IdRestaurant, table.PosX, table.PosY, table.DurationMinutes, table.IsAvailable)
+	query := `INSERT INTO table_restaurant (idTable, idRestaurant, shape, posX, posY, is_available) VALUES (?, ?, ?, ?, ?, ?)`
+	_, err := s.db.Exec(query, table.IdTable, table.IdRestaurant, table.Shape, table.PosX, table.PosY, table.IsAvailable)
 	return err
 }
 
@@ -969,6 +970,7 @@ where menu.active = 1 and food.status="available" and menu.idRestaurant = ?;
 			&menu.IdCategory,
 			&menu.Name,
 			&menu.Description,
+            &menu.IdRestaurant,
 			&menu.Image,
 			&menu.Price,
 			&menu.Status,
@@ -1122,8 +1124,63 @@ func (s *store) AddFoodToOrder(food types.AddFoodToOrder) error {
 	return nil
 }
 
+func (s *store) BulkUpdateRestaurantTables(idRestaurant string, tables []types.Table) error {
+	// Start a transaction to ensure atomicity
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("error starting transaction: %v", err)
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Delete all existing tables for this restaurant
+	deleteQuery := `DELETE FROM table_restaurant WHERE idRestaurant = ?`
+	_, err = tx.Exec(deleteQuery, idRestaurant)
+	if err != nil {
+		return fmt.Errorf("error deleting existing tables: %v", err)
+	}
+
+	// Insert new tables if any are provided
+	if len(tables) > 0 {
+		insertQuery := `INSERT INTO table_restaurant (idTable, idRestaurant, shape, posX, posY, is_available) VALUES (?, ?, ?, ?, ?, ?)`
+
+		for _, table := range tables {
+			// Generate ID if not provided
+			if table.IdTable == "" {
+				id, err := utils.CreateAnId()
+				if err != nil {
+					return fmt.Errorf("error generating table ID: %v", err)
+				}
+				table.IdTable = id
+			}
+
+			// Set restaurant ID
+			table.IdRestaurant = idRestaurant
+
+			// Set availability to true by default (since frontend doesn't send this field)
+			table.IsAvailable = true
+
+			_, err = tx.Exec(insertQuery, table.IdTable, table.IdRestaurant, table.Shape, table.PosX, table.PosY, table.IsAvailable)
+			if err != nil {
+				return fmt.Errorf("error inserting table %s: %v", table.IdTable, err)
+			}
+		}
+	}
+
+	// Commit the transaction
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("error committing transaction: %v", err)
+	}
+
+	return nil
+}
+
 func (s *store) GetRestaurantTables(restaurantId string, timeReserved time.Time) (*[]types.RestaurantTableStatus, error) {
-	query := `SELECT tr.idTable, tr.idRestaurant, r.idReservation, tr.posX, tr.posY, r.timeFrom,  r.numberOfPeople,
+	query := `SELECT tr.idTable, tr.idRestaurant, tr.shape, r.idReservation, tr.posX, tr.posY, r.timeFrom, r.numberOfPeople,
     IF(r.idReservation IS NOT NULL, 'reserved', 'available') AS status
 FROM 
     table_restaurant tr
@@ -1149,6 +1206,7 @@ WHERE tr.idRestaurant = ?;
 		err = rows.Scan(
 			&table.IdTable,
 			&table.IdRestaurant,
+			&table.Shape,
 			&table.IdReservation,
 			&table.PosX,
 			&table.PosY,

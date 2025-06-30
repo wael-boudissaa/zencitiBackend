@@ -71,11 +71,12 @@ type RestaurantStore interface {
 	GetRecentOrders(idRestaurant string, limit int) ([]RecentOrder, error)
 	GetRestaurant() (*[]Restaurant, error)
 	GetRestaurantById(id string) (*Restaurant, error)
+	BulkUpdateRestaurantTables(idRestaurant string, tables []Table) error
 	CreateReservation(idReservation string, reservation ReservationCreation) error
 	GetOrderInformation(idOrder string) (*OrderInformation, error)
 	UpdateOrderStatus(idOrder string, status string) error
 	GetAllRestaurantReservations(idRestaurant string, page, limit int) (*PaginatedReservations, error)
-    GetReservationDetails(idReservation string) (*ReservationIdDetails, error)
+	GetReservationDetails(idReservation string) (*ReservationIdDetails, error)
 	GetRecentReviews(idRestaurant string) ([]*Rating, error)
 	CreateOrder(idOrder string, order OrderCreation) error
 	GetReservationTodayByRestaurantId(idRestaurant string) (*[]ReservationListInformation, error)
@@ -105,8 +106,9 @@ type RestaurantStore interface {
 	UpdateReservationStatus(idReservation, status string) error
 	CreateNotification(notification Notification) error
 	GetNotifications() ([]Notification, error)
-	CreateFood(idFood, idCategory, idMenu, name, description, image string, price, status string) error
-	CreateMenu(idMenu, idRestaurant, name string) error
+	CreateFood(idFood, idCategory, idRestaurant, name, description, image string, price float64, status string) error
+    CreateMenu(idMenu, idRestaurant, name string) error 
+	// errorCreateMenu(idMenu, idRestaurant, name string) error
 	SetFoodUnavailable(idFood string) error
 	GetRestaurantWorker(idRestaurant string) (*[]RestaurantWorker, error)
 	CreateFoodCategory(idCategory, nameCategorie string) error

@@ -84,6 +84,53 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	//!NOTE:NOTIFICATIONI NOT THIS PLACE
 	r.HandleFunc("/notification", h.CreateNotification).Methods("POST")
 	r.HandleFunc("/notification", h.GetNotifications).Methods("GET")
+
+	//!NOTE: Tables
+	r.HandleFunc("/restaurant/{idRestaurant}/tables/bulk", h.BulkUpdateRestaurantTables).Methods("PUT")
+}
+
+func (h *Handler) BulkUpdateRestaurantTables(w http.ResponseWriter, r *http.Request) {
+	idRestaurant := mux.Vars(r)["idRestaurant"]
+	if idRestaurant == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idRestaurant is required"))
+		return
+	}
+
+	var req struct {
+		Tables []types.Table `json:"data"`
+	}
+
+	if err := utils.ParseJson(r, &req); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	// Validate table data
+	for i, table := range req.Tables {
+		if table.Shape == "" {
+			utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("table at index %d is missing shape", i))
+			return
+		}
+		if table.PosX < 0 || table.PosY < 0 {
+			utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("table at index %d has invalid position coordinates", i))
+			return
+		}
+	}
+
+	err := h.store.BulkUpdateRestaurantTables(idRestaurant, req.Tables)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	// Return the updated tables
+	updatedTables, err := h.store.GetTablesByRestaurant(idRestaurant)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("tables updated but failed to retrieve: %v", err))
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, updatedTables)
 }
 
 func (h *Handler) GetReservationDetails(w http.ResponseWriter, r *http.Request) {
@@ -645,11 +692,19 @@ func (h *Handler) CreateFood(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	idCategory := r.FormValue("idCategory")
-	idMenu := r.FormValue("idMenu")
+	idRestaurant := r.FormValue("idRestaurant") // Add this field
 	name := r.FormValue("name")
 	description := r.FormValue("description")
-	price := r.FormValue("price")
+	priceStr := r.FormValue("price")
 	status := r.FormValue("status")
+
+	// Convert price string to float64
+	price, err := strconv.ParseFloat(priceStr, 64)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid price format"))
+		return
+	}
+
 	file, _, err := r.FormFile("image")
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
@@ -661,7 +716,7 @@ func (h *Handler) CreateFood(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
-	if err := h.store.CreateFood(idFood, idCategory, idMenu, name, description, imageURL, price, status); err != nil {
+	if err := h.store.CreateFood(idFood, idCategory, idRestaurant, name, description, imageURL, price, status); err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}

@@ -2,6 +2,21 @@ package types
 
 import "time"
 
+type RestaurantCreation struct {
+	Name        string  `json:"name"`
+	Image       string  `json:"image"`
+	Longitude   float64 `json:"longitude"`
+	Latitude    float64 `json:"latitude"`
+	Description string  `json:"description"`
+	Capacity    int     `json:"capacity"`
+	Location    string  `json:"location"`
+}
+type AdminLocation struct {
+    Latitude    *float64 `json:"latitude"`
+    Longitude   *float64 `json:"longitude"`
+    HasLocation bool     `json:"hasLocation"`
+}
+
 type OrderInformation struct {
 	IdOrder         string          `json:"idOrder"`
 	TotalPrice      float64         `json:"totalPrice"`
@@ -529,14 +544,14 @@ type ReservationDetailsR struct {
 	NumberOfPeople int       `json:"numberOfPeople"`
 }
 type UpcomingReservationInfo struct {
-	IdReservation string `json:"idReservation"`
-	FirstName     string `json:"firstName"`
-	LastName      string `json:"lastName"`
-	NumberPeople  int    `json:"numberPeople"`
-	Date          string `json:"date"`
-	Day           string `json:"day"`
-	Time          string `json:"time"`
-	IdTable       string `json:"idTable"`
+	IdReservation string  `json:"idReservation"`
+	FirstName     string  `json:"firstName"`
+	LastName      string  `json:"lastName"`
+	NumberPeople  int     `json:"numberPeople"`
+	Date          string  `json:"date"`
+	Day           string  `json:"day"`
+	Time          string  `json:"time"`
+	IdTable       *string `json:"idTable"`
 }
 
 type ReservationStatsAndList struct {

@@ -2,6 +2,10 @@ package user
 
 import (
 	"fmt"
+	"log"
+	"strconv"
+	"strings"
+
 	// "log"
 	"net/http"
 
@@ -42,9 +46,14 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/username", h.GetUsername).Methods("GET")
 	router.HandleFunc("/admin/assignactivity", h.AssignClientToAdminActivity).Methods("POST")
 	router.HandleFunc("/admin/clients", h.GetAllClients).Methods("GET")
+
 	//!NOTE: admin
+	router.HandleFunc("/admin/{idAdmin}/location", h.SetAdminLocation).Methods("PUT")
+	router.HandleFunc("/api/admin/{idAdmin}/location", h.GetAdminLocation).Methods("GET")
+
 	router.HandleFunc("/admin/login", h.loginRestaurant).Methods("POST")
 	router.HandleFunc("/admin/create", h.CreateAdmin).Methods("POST")
+	router.HandleFunc("/restaurant/create-with-admin", h.CreateRestaurantWithAdmin).Methods("POST")
 }
 
 const (
@@ -52,6 +61,173 @@ const (
 	MaxAge = 86400 * 30
 	isProd = false
 )
+
+func (h *Handler) SetAdminLocation(w http.ResponseWriter, r *http.Request) {
+	idAdmin := mux.Vars(r)["idAdmin"]
+	if idAdmin == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idAdmin is required"))
+		return
+	}
+
+	var req struct {
+		Latitude  float64 `json:"latitude"`
+		Longitude float64 `json:"longitude"`
+	}
+
+	if err := utils.ParseJson(r, &req); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if req.Latitude < -90 || req.Latitude > 90 {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("latitude must be between -90 and 90"))
+		return
+	}
+
+	if req.Longitude < -180 || req.Longitude > 180 {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("longitude must be between -180 and 180"))
+		return
+	}
+
+	err := h.store.SetAdminLocation(idAdmin, req.Latitude, req.Longitude)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			utils.WriteError(w, http.StatusNotFound, err)
+			return
+		}
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, map[string]interface{}{
+		"latitude":  req.Latitude,
+		"longitude": req.Longitude,
+	})
+}
+
+func (h *Handler) GetAdminLocation(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	adminID := vars["idAdmin"]
+
+	location, err := h.store.GetAdminLocation(adminID)
+	if err != nil {
+		http.Error(w, "Location not found", http.StatusNotFound)
+		return
+	}
+
+	response := map[string]float64{
+		"latitude":  *location.Latitude,
+		"longitude": *location.Longitude,
+	}
+
+	utils.WriteJson(w, http.StatusOK, response)
+}
+
+func (h *Handler) CreateRestaurantWithAdmin(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseMultipartForm(10 << 20) // 10 MB limit
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("error parsing form: %v", err))
+		return
+	}
+
+	// Parse profile data
+	var profileData types.RegisterAdmin
+	profileData.Email = r.FormValue("email")
+	profileData.Password = r.FormValue("password")
+	profileData.FirstName = r.FormValue("first_name")
+	profileData.LastName = r.FormValue("last_name")
+	profileData.Address = r.FormValue("address")
+	profileData.Type = r.FormValue("type")
+	profileData.Phone = r.FormValue("phone_number")
+
+	// Validate required profile fields
+	if profileData.Email == "" || profileData.Password == "" || profileData.FirstName == "" || profileData.LastName == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("email, password, first_name, and last_name are required"))
+		return
+	}
+
+	if profileData.Type != "adminRestaurant" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("type must be adminRestaurant"))
+		return
+	}
+
+	// Parse restaurant data
+	var restaurantData types.RestaurantCreation
+	restaurantData.Name = r.FormValue("restaurant_name")
+	restaurantData.Description = r.FormValue("restaurant_description")
+	restaurantData.Location = r.FormValue("restaurant_location")
+
+	// Parse numeric fields
+	if capacityStr := r.FormValue("restaurant_capacity"); capacityStr != "" {
+		capacity, err := strconv.Atoi(capacityStr)
+		if err != nil {
+			utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid capacity format"))
+			return
+		}
+		restaurantData.Capacity = capacity
+	}
+
+	if longitudeStr := r.FormValue("restaurant_longitude"); longitudeStr != "" {
+		longitude, err := strconv.ParseFloat(longitudeStr, 64)
+		if err != nil {
+			utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid longitude format"))
+			return
+		}
+		restaurantData.Longitude = longitude
+	}
+
+	if latitudeStr := r.FormValue("restaurant_latitude"); latitudeStr != "" {
+		latitude, err := strconv.ParseFloat(latitudeStr, 64)
+		if err != nil {
+			utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid latitude format"))
+			return
+		}
+		restaurantData.Latitude = latitude
+	}
+
+	// Validate required restaurant fields
+	if restaurantData.Name == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("restaurant_name is required"))
+		return
+	}
+
+	// Handle image upload
+	file, _, err := r.FormFile("restaurant_image")
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("restaurant_image is required"))
+		return
+	}
+	defer file.Close()
+
+	imageURL, err := utils.UploadImageToCloudinary(file)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("error uploading image: %v", err))
+		return
+	}
+	restaurantData.Image = imageURL
+
+	// Create restaurant with admin
+	idRestaurant, token, err := h.store.CreateRestaurantWithAdmin(restaurantData, profileData)
+	if err != nil {
+		if strings.Contains(err.Error(), "already exists") {
+			utils.WriteError(w, http.StatusConflict, err)
+			return
+		}
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = utils.SendRestaurantAdminWelcomeEmail(profileData.Email, profileData.FirstName, profileData.LastName, profileData.Password, restaurantData.Name)
+	if err != nil {
+		log.Printf("Failed to send welcome email to %s: %v", profileData.Email, err)
+	}
+	utils.WriteJson(w, http.StatusCreated, map[string]interface{}{
+		"message":      "Restaurant and admin created successfully",
+		"idRestaurant": idRestaurant,
+		"token":        token,
+		"image":        imageURL,
+	})
+}
 
 func (h *Handler) loginRestaurant(w http.ResponseWriter, r *http.Request) {
 	var user types.UserLogin
@@ -70,6 +246,15 @@ func (h *Handler) loginRestaurant(w http.ResponseWriter, r *http.Request) {
 	//!NOTE: compare the password
 	if !utils.ComparePasswords([]byte(user.Password), []byte(u.Password)) {
 		utils.WriteError(w, http.StatusConflict, fmt.Errorf("Invalid Password"))
+		return
+	}
+	isAssigned, _, err := h.store.VerifyAdminRestaurantAssignment(u.IdAdminRestaurant)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if !isAssigned {
+		utils.WriteError(w, http.StatusUnauthorized, fmt.Errorf("admin is no longer assigned to any restaurant"))
 		return
 	}
 
@@ -153,6 +338,7 @@ func (h *Handler) CreateAdmin(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid role"))
 		return
 	}
+
 	utils.WriteJson(w, http.StatusOK, map[string]string{"token": token, "message": "Admin created successfully"})
 }
 

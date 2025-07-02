@@ -23,7 +23,11 @@ type FeedBackStore interface {
 	CreateFeedBack(idFeedBack, idCustomer, comment string) error
 }
 type UserStore interface {
+    VerifyAdminRestaurantAssignment(idAdminRestaurant string) (bool, string, error)
 	IsClientAdminActivity(idProfile string) (bool, string, error)
+    GetAdminLocation(idAdmin string) (*AdminLocation, error)
+	SetAdminLocation(idAdmin string, latitude, longitude float64) error
+	CreateRestaurantWithAdmin(restaurantData RestaurantCreation, profileData RegisterAdmin) (string, string, error)
 	AssignClientToAdminActivity(idClient string) error
 	GetUserByEmail(email string) (*User, error)
 	GetAdminByEmail(email string) (*UserAdmin, error)
@@ -72,8 +76,8 @@ type RestaurantStore interface {
 	GetRestaurant() (*[]Restaurant, error)
 	GetRestaurantById(id string) (*Restaurant, error)
 	BulkUpdateRestaurantTables(idRestaurant string, tables []Table) error
-    SetMenuActive(idMenu, idRestaurant string) error
-    GetRestaurantWorkerWithRatings(idRestaurantWorker string) (*RestaurantWorkerWithRatings, error)
+	SetMenuActive(idMenu, idRestaurant string) error
+	GetRestaurantWorkerWithRatings(idRestaurantWorker string) (*RestaurantWorkerWithRatings, error)
 	CreateReservation(idReservation string, reservation ReservationCreation) error
 	GetOrderInformation(idOrder string) (*OrderInformation, error)
 	UpdateOrderStatus(idOrder string, status string) error
@@ -109,7 +113,7 @@ type RestaurantStore interface {
 	CreateNotification(notification Notification) error
 	GetNotifications() ([]Notification, error)
 	CreateFood(idFood, idCategory, idRestaurant, name, description, image string, price float64, status string) error
-    CreateMenu(idMenu, idRestaurant, name string) error 
+	CreateMenu(idMenu, idRestaurant, name string) error
 	// errorCreateMenu(idMenu, idRestaurant, name string) error
 	SetFoodUnavailable(idFood string) error
 	GetRestaurantWorker(idRestaurant string) (*[]RestaurantWorker, error)

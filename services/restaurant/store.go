@@ -1160,10 +1160,10 @@ where menu.active = 1 and food.status="available" and menu.idRestaurant = ?;
 		var menu types.MenuInformationFood
 		err = rows.Scan(
 			&menu.IdFood,
+            &menu.IdRestaurant,
 			&menu.IdCategory,
 			&menu.Name,
 			&menu.Description,
-			&menu.IdRestaurant,
 			&menu.Image,
 			&menu.Price,
 			&menu.Status,

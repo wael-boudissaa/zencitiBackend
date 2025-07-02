@@ -18,6 +18,179 @@ type Store struct {
 func NewStore(db *sql.DB) *Store {
 	return &Store{db: db}
 }
+func (s *Store) VerifyAdminRestaurantAssignment(idAdminRestaurant string) (bool, string, error) {
+    query := `SELECT idRestaurant FROM restaurant WHERE idAdminRestaurant = ?`
+    var idRestaurant string
+    err := s.db.QueryRow(query, idAdminRestaurant).Scan(&idRestaurant)
+    if err == sql.ErrNoRows {
+        return false, "", nil 
+    } else if err != nil {
+        return false, "", err 
+    }
+    return true, idRestaurant, nil
+}
+
+func (s *Store) SetAdminLocation(idAdmin string, latitude, longitude float64) error {
+	var count int
+	checkQuery := `SELECT COUNT(*) FROM admin WHERE idAdmin = ?`
+	err := s.db.QueryRow(checkQuery, idAdmin).Scan(&count)
+	if err != nil {
+		return fmt.Errorf("error checking admin existence: %v", err)
+	}
+
+	if count == 0 {
+		return fmt.Errorf("admin with ID %s not found", idAdmin)
+	}
+
+	// Update admin location
+	updateQuery := `UPDATE admin SET latitude = ?, longitude = ? WHERE idAdmin = ?`
+	_, err = s.db.Exec(updateQuery, latitude, longitude, idAdmin)
+	if err != nil {
+		return fmt.Errorf("error updating admin location: %v", err)
+	}
+
+	return nil
+}
+
+func (s *Store) GetAdminLocation(idAdmin string) (*types.AdminLocation, error) {
+	query := `
+        SELECT 
+            latitude,
+            longitude
+        FROM admin 
+        WHERE idAdmin = ?
+    `
+
+	row := s.db.QueryRow(query, idAdmin)
+	var adminLocation types.AdminLocation
+
+	err := row.Scan(
+		&adminLocation.Latitude,
+		&adminLocation.Longitude,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("admin with ID %s not found", idAdmin)
+		}
+		return nil, fmt.Errorf("error retrieving admin location: %v", err)
+	}
+
+	if adminLocation.Latitude == nil || adminLocation.Longitude == nil {
+		return &types.AdminLocation{
+			Latitude:    nil,
+			Longitude:   nil,
+			HasLocation: false,
+		}, nil
+	}
+
+	adminLocation.HasLocation = true
+	return &adminLocation, nil
+}
+
+func (s *Store) CreateRestaurantWithAdmin(restaurantData types.RestaurantCreation, profileData types.RegisterAdmin) (string, string, error) {
+	// Start a transaction to ensure atomicity
+	tx, err := s.db.Begin()
+	if err != nil {
+		return "", "", fmt.Errorf("error starting transaction: %v", err)
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Generate IDs
+	idProfile, err := utils.CreateAnId()
+	if err != nil {
+		return "", "", fmt.Errorf("error generating profile ID: %v", err)
+	}
+
+	idAdminRestaurant, err := utils.CreateAnId()
+	if err != nil {
+		return "", "", fmt.Errorf("error generating admin restaurant ID: %v", err)
+	}
+
+	idRestaurant, err := utils.CreateAnId()
+	if err != nil {
+		return "", "", fmt.Errorf("error generating restaurant ID: %v", err)
+	}
+
+	// Hash password
+	hashedPassword, err := utils.HashedPassword(profileData.Password)
+	if err != nil {
+		return "", "", fmt.Errorf("error hashing password: %v", err)
+	}
+
+	// Create refresh token
+	token, err := utils.CreateRefreshToken(idProfile, profileData.Type)
+	if err != nil {
+		return "", "", fmt.Errorf("error creating refresh token: %v", err)
+	}
+
+	// Check if email already exists
+	var emailCount int
+	checkEmailQuery := `SELECT COUNT(*) FROM profile WHERE email = ?`
+	err = tx.QueryRow(checkEmailQuery, profileData.Email).Scan(&emailCount)
+	if err != nil {
+		return "", "", fmt.Errorf("error checking email existence: %v", err)
+	}
+	if emailCount > 0 {
+		return "", "", fmt.Errorf("email %s already exists", profileData.Email)
+	}
+
+	// 1. Create profile
+	profileQuery := `INSERT INTO profile (idProfile, firstName, lastName, email, password, address, createdAt, lastLogin, refreshToken, type, phoneNumber)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+	_, err = tx.Exec(profileQuery,
+		idProfile,
+		profileData.FirstName,
+		profileData.LastName,
+		profileData.Email,
+		string(hashedPassword),
+		profileData.Address,
+		time.Now(),
+		time.Now(),
+		token,
+		profileData.Type,
+		profileData.Phone,
+	)
+	if err != nil {
+		return "", "", fmt.Errorf("error creating profile: %v", err)
+	}
+
+	// 2. Create adminRestaurant
+	adminQuery := `INSERT INTO adminRestaurant (idAdminRestaurant, idProfile) VALUES (?, ?)`
+	_, err = tx.Exec(adminQuery, idAdminRestaurant, idProfile)
+	if err != nil {
+		return "", "", fmt.Errorf("error creating admin restaurant: %v", err)
+	}
+
+	// 3. Create restaurant
+	restaurantQuery := `INSERT INTO restaurant (idRestaurant, idAdminRestaurant, name, image, longitude, latitude, description, capacity, location) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	_, err = tx.Exec(restaurantQuery,
+		idRestaurant,
+		idAdminRestaurant,
+		restaurantData.Name,
+		restaurantData.Image,
+		restaurantData.Longitude,
+		restaurantData.Latitude,
+		restaurantData.Description,
+		restaurantData.Capacity,
+		restaurantData.Location,
+	)
+	if err != nil {
+		return "", "", fmt.Errorf("error creating restaurant: %v", err)
+	}
+
+	// Commit the transaction
+	err = tx.Commit()
+	if err != nil {
+		return "", "", fmt.Errorf("error committing transaction: %v", err)
+	}
+
+	return idRestaurant, token, nil
+}
 
 func (s *Store) IsClientAdminActivity(idProfile string) (bool, string, error) {
 	query := `SELECT idAdminActivity FROM adminActivity WHERE idProfile = ?`

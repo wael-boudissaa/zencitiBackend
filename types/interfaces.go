@@ -23,9 +23,9 @@ type FeedBackStore interface {
 	CreateFeedBack(idFeedBack, idCustomer, comment string) error
 }
 type UserStore interface {
-    VerifyAdminRestaurantAssignment(idAdminRestaurant string) (bool, string, error)
+	VerifyAdminRestaurantAssignment(idAdminRestaurant string) (bool, string, error)
 	IsClientAdminActivity(idProfile string) (bool, string, error)
-    GetAdminLocation(idAdmin string) (*AdminLocation, error)
+	GetAdminLocation(idAdmin string) (*AdminLocation, error)
 	SetAdminLocation(idAdmin string, latitude, longitude float64) error
 	CreateRestaurantWithAdmin(restaurantData RestaurantCreation, profileData RegisterAdmin) (string, string, error)
 	AssignClientToAdminActivity(idClient string) error
@@ -53,6 +53,7 @@ type UserStore interface {
 
 type ActiviteStore interface {
 	// GetActivite() (*[]Activite, error)
+	GetAllLocationsWithDistances(clientLat, clientLng float64) (*[]LocationItemWithDistance, error)
 	UpdateClientActivityStatus(idClientActivity string) error
 	GetRecentActivities(idClient string) (*[]ActivityProfile, error)
 	GetActiviteById(id string) (*Activity, error)

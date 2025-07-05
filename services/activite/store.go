@@ -16,6 +16,92 @@ func NewStore(db *sql.DB) *Store {
 	return &Store{db: db}
 }
 
+func (s *Store) GetAllLocationsWithDistances(clientLat, clientLng float64) (*[]types.LocationItemWithDistance, error) {
+	query := `
+        (SELECT 
+            r.idRestaurant as id,
+            r.name,
+            'Restaurant' as type,
+            IFNULL(r.latitude, 0) as latitude,
+            IFNULL(r.longitude, 0) as longitude,
+            r.location as address,
+            r.image as imageUrl,
+            IFNULL(p.phoneNumber, '') as phoneNumber,
+            (6371 * acos(cos(radians(?)) * cos(radians(r.latitude)) * 
+            cos(radians(r.longitude) - radians(?)) + 
+            sin(radians(?)) * sin(radians(r.latitude)))) AS distance
+        FROM restaurant r
+        LEFT JOIN adminRestaurant ar ON r.idAdminRestaurant = ar.idAdminRestaurant
+        LEFT JOIN profile p ON ar.idProfile = p.idProfile
+        WHERE r.latitude IS NOT NULL AND r.longitude IS NOT NULL 
+        AND r.latitude != 0 AND r.longitude != 0)
+        
+        UNION ALL
+        
+        (SELECT 
+            a.idActivity as id,
+            a.nameActivity as name,
+            'Activity' as type,
+            IFNULL(a.latitude, 0) as latitude,
+            IFNULL(a.longitude, 0) as longitude,
+'No address available' as address,
+            a.imageActivity as imageUrl,
+            IFNULL(p.phoneNumber, 'No phone available') as phoneNumber,
+            (6371 * acos(cos(radians(?)) * cos(radians(a.latitude)) * 
+            cos(radians(a.longitude) - radians(?)) + 
+            sin(radians(?)) * sin(radians(a.latitude)))) AS distance
+        FROM activity a
+        LEFT JOIN adminActivity aa ON a.idAdminActivity = aa.idAdminActivity
+        LEFT JOIN profile p ON aa.idProfile = p.idProfile
+        WHERE a.latitude IS NOT NULL AND a.longitude IS NOT NULL 
+        AND a.latitude != 0 AND a.longitude != 0)
+        
+        ORDER BY distance ASC
+        LIMIT 50
+    `
+
+	rows, err := s.db.Query(query, clientLat, clientLng, clientLat, clientLat, clientLng, clientLat)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving locations: %v", err)
+	}
+	defer rows.Close()
+
+	var locations []types.LocationItemWithDistance
+	for rows.Next() {
+		var location types.LocationItemWithDistance
+		var distance float64
+
+		err := rows.Scan(
+			&location.ID,
+			&location.Name,
+			&location.Type,
+			&location.Latitude,
+			&location.Longitude,
+			&location.Address,
+			&location.ImageURL,
+			&location.PhoneNumber,
+			&distance,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning location row: %v", err)
+		}
+
+		location.Distance = distance
+		location.DistanceFormatted = formatDistance(distance)
+		locations = append(locations, location)
+	}
+
+	return &locations, nil
+}
+
+// Helper function to format distance
+func formatDistance(distance float64) string {
+	if distance < 1 {
+		return fmt.Sprintf("%.0f m", distance*1000)
+	}
+	return fmt.Sprintf("%.1f km", distance)
+}
+
 //	func (s *Store) GetActivite() (*[]types.Activite, error) {
 //		query := `SELECT * FROM activite`
 //		rows, err := s.db.Query(query)
@@ -87,8 +173,9 @@ func (s *Store) UpdateClientActivityStatus(idClientActivity string) error {
 
 	return nil
 }
+
 func (s *Store) GetAllClientActivities(idClient string) ([]types.ClientActivityInfo, error) {
-    query := `
+	query := `
         SELECT 
             ca.idClientActivity,
             ca.timeActivity,
@@ -101,28 +188,28 @@ func (s *Store) GetAllClientActivities(idClient string) ([]types.ClientActivityI
         WHERE ca.idClient = ?
         ORDER BY ca.timeActivity DESC
     `
-    rows, err := s.db.Query(query, idClient)
-    if err != nil {
-        return nil, err
-    }
-    defer rows.Close()
+	rows, err := s.db.Query(query, idClient)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-    var activities []types.ClientActivityInfo
-    for rows.Next() {
-        var activity types.ClientActivityInfo
-        if err := rows.Scan(
-            &activity.IdClientActivity,
-            &activity.TimeActivity,
-            &activity.Status,
-            &activity.ActivityName,
-            &activity.ActivityImage,
-            &activity.ActivityDescription,
-        ); err != nil {
-            return nil, err
-        }
-        activities = append(activities, activity)
-    }
-    return activities, nil
+	var activities []types.ClientActivityInfo
+	for rows.Next() {
+		var activity types.ClientActivityInfo
+		if err := rows.Scan(
+			&activity.IdClientActivity,
+			&activity.TimeActivity,
+			&activity.Status,
+			&activity.ActivityName,
+			&activity.ActivityImage,
+			&activity.ActivityDescription,
+		); err != nil {
+			return nil, err
+		}
+		activities = append(activities, activity)
+	}
+	return activities, nil
 }
 
 func (s *Store) CreateActivityClient(idClientActivity string, act types.ActivityCreation) error {
@@ -267,6 +354,7 @@ func (s *Store) GetActivityByTypes(id string) (*[]types.Activity, error) {
 
 			&act.IdTypeActivity,
 			&act.Popularity,
+			&act.IdAdminActivity,
 		)
 		if err != nil {
 			return nil, err

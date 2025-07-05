@@ -2,6 +2,29 @@ package types
 
 import "time"
 
+type LocationItemWithDistance struct {
+	ID                string  `json:"id"`
+	Name              string  `json:"name"`
+	Type              string  `json:"type"` // "Restaurant" or "Activity"
+	Address           *string  `json:"address"`
+	Latitude          float64 `json:"latitude"`
+	Longitude         float64 `json:"longitude"`
+	ImageURL          string  `json:"imageUrl"`
+	PhoneNumber       string  `json:"phoneNumber"`
+	Distance          float64 `json:"distance"`          // in kilometers
+	DistanceFormatted string  `json:"distanceFormatted"` // "1.2 km" or "500 m"
+}
+type LocationItem struct {
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Type        string  `json:"type"` // "Restaurant" or "Activity"
+	Address     *string `json:"address"`
+	Latitude    float64 `json:"latitude"`
+	Longitude   float64 `json:"longitude"`
+	ImageURL    string  `json:"imageUrl"`
+	PhoneNumber string  `json:"phoneNumber"`
+}
+
 type RestaurantCreation struct {
 	Name        string  `json:"name"`
 	Image       string  `json:"image"`
@@ -12,9 +35,9 @@ type RestaurantCreation struct {
 	Location    string  `json:"location"`
 }
 type AdminLocation struct {
-    Latitude    *float64 `json:"latitude"`
-    Longitude   *float64 `json:"longitude"`
-    HasLocation bool     `json:"hasLocation"`
+	Latitude    *float64 `json:"latitude"`
+	Longitude   *float64 `json:"longitude"`
+	HasLocation bool     `json:"hasLocation"`
 }
 
 type OrderInformation struct {
@@ -158,6 +181,7 @@ type ProfilePage struct {
 
 type Activity struct {
 	IdActivity   string   `json:"idActivity"`
+    IdAdminActivity *string   `json:"idAdminActivity"`
 	NameActivity string   `json:"nameActivity"`
 	Description  string   `json:"descriptionActivity"`
 	Langitude    *float64 `json:"longitude" db:"longitude"`

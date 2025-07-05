@@ -32,6 +32,42 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/activity/notAvailable", h.GetActivityNotAvaialbaleAtday).Methods("POST")
 	r.HandleFunc("/client/{idClient}/activities", h.GetAllClientActivities).Methods("GET")
 	r.HandleFunc("/activity/complete", h.CompleteClientActivity).Methods("POST")
+	r.HandleFunc("/locations", h.GetAllLocationsWithDistances).Methods("POST")
+}
+
+func (h *Handler) GetAllLocationsWithDistances(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Latitude  float64 `json:"latitude"`
+		Longitude float64 `json:"longitude"`
+	}
+
+	if err := utils.ParseJson(r, &req); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if req.Latitude < -90 || req.Latitude > 90 {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("latitude must be between -90 and 90"))
+		return
+	}
+
+	if req.Longitude < -180 || req.Longitude > 180 {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("longitude must be between -180 and 180"))
+		return
+	}
+
+	locations, err := h.store.GetAllLocationsWithDistances(req.Latitude, req.Longitude)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if locations == nil || len(*locations) == 0 {
+		utils.WriteJson(w, http.StatusOK, []types.LocationItemWithDistance{})
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, locations)
 }
 
 func (h *Handler) GetAllClientActivities(w http.ResponseWriter, r *http.Request) {

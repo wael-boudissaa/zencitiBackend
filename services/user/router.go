@@ -54,6 +54,8 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/admin/login", h.loginRestaurant).Methods("POST")
 	router.HandleFunc("/admin/create", h.CreateAdmin).Methods("POST")
 	router.HandleFunc("/restaurant/create-with-admin", h.CreateRestaurantWithAdmin).Methods("POST")
+
+	router.HandleFunc("/users/stats", h.GetUserStats).Methods("GET")
 }
 
 const (
@@ -61,6 +63,16 @@ const (
 	MaxAge = 86400 * 30
 	isProd = false
 )
+
+func (h *Handler) GetUserStats(w http.ResponseWriter, r *http.Request) {
+	stats, err := h.store.GetUserStats()
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, stats)
+}
 
 func (h *Handler) SetAdminLocation(w http.ResponseWriter, r *http.Request) {
 	idAdmin := mux.Vars(r)["idAdmin"]

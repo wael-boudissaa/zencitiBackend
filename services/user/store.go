@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"sort"
 	"time"
 
 	// "github.com/wael-boudissaa/zencitiBackend/services/auth"
@@ -18,16 +19,17 @@ type Store struct {
 func NewStore(db *sql.DB) *Store {
 	return &Store{db: db}
 }
+
 func (s *Store) VerifyAdminRestaurantAssignment(idAdminRestaurant string) (bool, string, error) {
-    query := `SELECT idRestaurant FROM restaurant WHERE idAdminRestaurant = ?`
-    var idRestaurant string
-    err := s.db.QueryRow(query, idAdminRestaurant).Scan(&idRestaurant)
-    if err == sql.ErrNoRows {
-        return false, "", nil 
-    } else if err != nil {
-        return false, "", err 
-    }
-    return true, idRestaurant, nil
+	query := `SELECT idRestaurant FROM restaurant WHERE idAdminRestaurant = ?`
+	var idRestaurant string
+	err := s.db.QueryRow(query, idAdminRestaurant).Scan(&idRestaurant)
+	if err == sql.ErrNoRows {
+		return false, "", nil
+	} else if err != nil {
+		return false, "", err
+	}
+	return true, idRestaurant, nil
 }
 
 func (s *Store) SetAdminLocation(idAdmin string, latitude, longitude float64) error {
@@ -727,4 +729,150 @@ func (s *Store) UpdateRestaurantAdmin(idRestaurant string, idAdminRestaurant str
 		return fmt.Errorf("error updating restaurant admin: %v", err)
 	}
 	return nil
+}
+
+// Add to services/user/store.go
+
+// GetUserStats retrieves comprehensive user statistics
+func (s *Store) GetUserStats() (*types.UserStats, error) {
+	stats := &types.UserStats{}
+
+	// Get total users
+	totalQuery := "SELECT COUNT(*) FROM profile"
+	err := s.db.QueryRow(totalQuery).Scan(&stats.TotalUsers)
+	if err != nil {
+		return nil, fmt.Errorf("error counting total users: %v", err)
+	}
+
+	// Get active users today (users who logged in today)
+	activeQuery := "SELECT COUNT(*) FROM profile WHERE DATE(lastLogin) = CURDATE()"
+	err = s.db.QueryRow(activeQuery).Scan(&stats.ActiveUsersToday)
+	if err != nil {
+		return nil, fmt.Errorf("error counting active users today: %v", err)
+	}
+
+	// Get new users this month
+	newQuery := "SELECT COUNT(*) FROM profile WHERE MONTH(createdAt) = MONTH(CURDATE()) AND YEAR(createdAt) = YEAR(CURDATE())"
+	err = s.db.QueryRow(newQuery).Scan(&stats.NewUsersThisMonth)
+	if err != nil {
+		return nil, fmt.Errorf("error counting new users this month: %v", err)
+	}
+
+	// Get monthly stats for the last year
+	monthlyStats, err := s.GetMonthlyUserStats()
+	if err != nil {
+		return nil, err
+	}
+	stats.MonthlyStats = monthlyStats
+
+	return stats, nil
+}
+
+// GetMonthlyUserStats retrieves monthly user statistics for the past year
+func (s *Store) GetMonthlyUserStats() ([]types.MonthlyUserStats, error) {
+	// Create a map to hold our results
+	statMap := make(map[string]types.MonthlyUserStats)
+
+	// First, get new users per month for the last year
+	newUsersQuery := `
+        SELECT 
+            MONTH(createdAt) as month,
+            YEAR(createdAt) as year,
+            COUNT(*) as newUsers
+        FROM 
+            profile
+        WHERE 
+            createdAt >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)
+        GROUP BY 
+            YEAR(createdAt), MONTH(createdAt)
+        ORDER BY 
+            YEAR(createdAt), MONTH(createdAt)
+    `
+
+	rows, err := s.db.Query(newUsersQuery)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving monthly new users: %v", err)
+	}
+	defer rows.Close()
+
+	// Process new users data
+	for rows.Next() {
+		var month, year, newUsers int
+		if err := rows.Scan(&month, &year, &newUsers); err != nil {
+			return nil, fmt.Errorf("error scanning monthly new users row: %v", err)
+		}
+		key := fmt.Sprintf("%d-%d", year, month)
+		statMap[key] = types.MonthlyUserStats{
+			Month:       month,
+			Year:        year,
+			NewUsers:    newUsers,
+			ActiveUsers: 0, // Will be updated in next query
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating monthly new users rows: %v", err)
+	}
+
+	// Next, get active users per month for the last year
+	activeUsersQuery := `
+        SELECT 
+            MONTH(lastLogin) as month,
+            YEAR(lastLogin) as year,
+            COUNT(DISTINCT idProfile) as activeUsers
+        FROM 
+            profile
+        WHERE 
+            lastLogin >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)
+        GROUP BY 
+            YEAR(lastLogin), MONTH(lastLogin)
+        ORDER BY 
+            YEAR(lastLogin), MONTH(lastLogin)
+    `
+
+	activeRows, err := s.db.Query(activeUsersQuery)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving monthly active users: %v", err)
+	}
+	defer activeRows.Close()
+
+	// Process active users data
+	for activeRows.Next() {
+		var month, year, activeUsers int
+		if err := activeRows.Scan(&month, &year, &activeUsers); err != nil {
+			return nil, fmt.Errorf("error scanning monthly active users row: %v", err)
+		}
+		key := fmt.Sprintf("%d-%d", year, month)
+		if stat, exists := statMap[key]; exists {
+			// Update existing entry
+			stat.ActiveUsers = activeUsers
+			statMap[key] = stat
+		} else {
+			// Create new entry if month-year doesn't exist yet
+			statMap[key] = types.MonthlyUserStats{
+				Month:       month,
+				Year:        year,
+				NewUsers:    0,
+				ActiveUsers: activeUsers,
+			}
+		}
+	}
+	if err := activeRows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating monthly active users rows: %v", err)
+	}
+
+	// Convert map to sorted slice
+	var result []types.MonthlyUserStats
+	for _, stat := range statMap {
+		result = append(result, stat)
+	}
+
+	// Sort by year and month
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Year != result[j].Year {
+			return result[i].Year < result[j].Year
+		}
+		return result[i].Month < result[j].Month
+	})
+
+	return result, nil
 }

@@ -19,6 +19,211 @@ type store struct {
 func NewStore(db *sql.DB) *store {
 	return &store{db: db}
 }
+// Add to services/restaurant/store.go
+
+func (s *store) GetUniversalReservationDetails(reservationId string, reservationType string) (*types.UniversalReservationDetails, error) {
+    if reservationType == "restaurant" {
+        return s.getRestaurantReservationDetails(reservationId)
+    } else if reservationType == "activity" {
+        return s.getActivityReservationDetails(reservationId)
+    } else {
+        return nil, fmt.Errorf("invalid reservation type. Must be 'restaurant' or 'activity'")
+    }
+}
+
+func (s *store) getRestaurantReservationDetails(reservationId string) (*types.UniversalReservationDetails, error) {
+    query := `
+        SELECT 
+            r.idReservation,
+            r.idClient,
+            r.status,
+            r.createdAt,
+            r.timeFrom,
+            r.numberOfPeople,
+            r.idTable,
+            
+            -- Client information
+            p.firstName,
+            p.lastName,
+            p.email,
+            p.phoneNumber,
+            c.username,
+            
+            -- Restaurant information
+            rest.idRestaurant,
+            rest.name,
+            rest.image,
+            rest.location,
+            rest.description,
+            rest.capacity,
+            rest.longitude,
+            rest.latitude,
+            
+            -- Restaurant admin information
+            adminProfile.firstName,
+            adminProfile.lastName,
+            adminProfile.email,
+            adminProfile.phoneNumber
+            
+        FROM reservation r
+        JOIN client c ON r.idClient = c.idClient
+        JOIN profile p ON c.idProfile = p.idProfile
+        JOIN restaurant rest ON r.idRestaurant = rest.idRestaurant
+        JOIN adminRestaurant ar ON rest.idAdminRestaurant = ar.idAdminRestaurant
+        JOIN profile adminProfile ON ar.idProfile = adminProfile.idProfile
+        WHERE r.idReservation = ?
+    `
+    
+    row := s.db.QueryRow(query, reservationId)
+    
+    var details types.UniversalReservationDetails
+    var restaurantInfo types.RestaurantReservationInfo
+    var tableID sql.NullString
+    
+    err := row.Scan(
+        &details.ReservationID,
+        &details.ClientID,
+        &details.Status,
+        &details.CreatedAt,
+        &details.ReservationTime,
+        &restaurantInfo.NumberOfPeople,
+        &tableID,
+        
+        // Client info
+        &details.ClientFirstName,
+        &details.ClientLastName,
+        &details.ClientEmail,
+        &details.ClientPhone,
+        &details.ClientUsername,
+        
+        // Restaurant info
+        &restaurantInfo.RestaurantID,
+        &restaurantInfo.RestaurantName,
+        &restaurantInfo.RestaurantImage,
+        &restaurantInfo.RestaurantLocation,
+        &restaurantInfo.Description,
+        &restaurantInfo.Capacity,
+        &restaurantInfo.Longitude,
+        &restaurantInfo.Latitude,
+        
+        // Admin info
+        &restaurantInfo.AdminFirstName,
+        &restaurantInfo.AdminLastName,
+        &restaurantInfo.AdminEmail,
+        &restaurantInfo.AdminPhone,
+    )
+    
+    if err != nil {
+        if err == sql.ErrNoRows {
+            return nil, fmt.Errorf("restaurant reservation with ID %s not found", reservationId)
+        }
+        return nil, fmt.Errorf("error retrieving restaurant reservation details: %v", err)
+    }
+    
+    if tableID.Valid {
+        restaurantInfo.TableID = tableID.String
+    }
+    
+    details.ReservationType = "restaurant"
+    details.RestaurantInfo = &restaurantInfo
+    
+    return &details, nil
+}
+
+func (s *store) getActivityReservationDetails(reservationId string) (*types.UniversalReservationDetails, error) {
+    query := `
+        SELECT 
+            ca.idClientActivity,
+            ca.idClient,
+            ca.status,
+            ca.timeActivity,
+            
+            -- Client information
+            p.firstName,
+            p.lastName,
+            p.email,
+            p.phoneNumber,
+            c.username,
+            
+            -- Activity information
+            a.idActivity,
+            a.nameActivity,
+            a.descriptionActivity,
+            a.imageActivity,
+            a.popularity,
+            a.longitude,
+            a.latitude,
+            
+            -- Activity type
+            ta.nameTypeActivity,
+            
+            -- Activity admin information
+            adminProfile.firstName,
+            adminProfile.lastName,
+            adminProfile.email,
+            adminProfile.phoneNumber
+            
+        FROM clientActivity ca
+        JOIN client c ON ca.idClient = c.idClient
+        JOIN profile p ON c.idProfile = p.idProfile
+        JOIN activity a ON ca.idActivity = a.idActivity
+        JOIN typeActivity ta ON a.idTypeActivity = ta.idTypeActivity
+        LEFT JOIN adminActivity aa ON ca.idAdminActivity = aa.idAdminActivity
+        LEFT JOIN profile adminProfile ON aa.idProfile = adminProfile.idProfile
+        WHERE ca.idClientActivity = ?
+    `
+    
+    row := s.db.QueryRow(query, reservationId)
+    
+    var details types.UniversalReservationDetails
+    var activityInfo types.ActivityReservationInfo
+    
+    err := row.Scan(
+        &details.ReservationID,
+        &details.ClientID,
+        &details.Status,
+        &details.ReservationTime,
+        
+        // Client info
+        &details.ClientFirstName,
+        &details.ClientLastName,
+        &details.ClientEmail,
+        &details.ClientPhone,
+        &details.ClientUsername,
+        
+        // Activity info
+        &activityInfo.ActivityID,
+        &activityInfo.ActivityName,
+        &activityInfo.ActivityDescription,
+        &activityInfo.ActivityImage,
+        &activityInfo.Popularity,
+        &activityInfo.Longitude,
+        &activityInfo.Latitude,
+        
+        // Activity type
+        &activityInfo.ActivityType,
+        
+        // Admin info
+        &activityInfo.AdminFirstName,
+        &activityInfo.AdminLastName,
+        &activityInfo.AdminEmail,
+        &activityInfo.AdminPhone,
+    )
+    
+    if err != nil {
+        if err == sql.ErrNoRows {
+            return nil, fmt.Errorf("activity reservation with ID %s not found", reservationId)
+        }
+        return nil, fmt.Errorf("error retrieving activity reservation details: %v", err)
+    }
+    
+    details.ReservationType = "activity"
+    details.ActivityInfo = &activityInfo
+    // Set created time to reservation time for activities (since they don't have separate created time)
+    details.CreatedAt = details.ReservationTime
+    
+    return &details, nil
+}
 
 func (s *store) GetReservationDetails(idReservation string) (*types.ReservationIdDetails, error) {
 	reservationQuery := `
@@ -931,16 +1136,12 @@ func (s *store) CreateTable(table types.Table) error {
 	return err
 }
 
-func (s *store) GetFoodCategoriesByRestaurant(idRestaurant string) ([]types.FoodCategory, error) {
+func (s *store) GetFoodCategoriesByRestaurant() ([]types.FoodCategory, error) {
 	query := `
         SELECT DISTINCT fc.idCategory, fc.nameCategorie
         FROM foodCategory fc
-        JOIN food f ON f.idCategory = fc.idCategory
-        JOIN menufood m ON f.idFood = m.idFood
-        join menu on m.idMenu = menu.idMenu
-        WHERE menu.idRestaurant = ?
     `
-	rows, err := s.db.Query(query, idRestaurant)
+	rows, err := s.db.Query(query)
 	if err != nil {
 		return nil, err
 	}
@@ -1160,7 +1361,7 @@ where menu.active = 1 and food.status="available" and menu.idRestaurant = ?;
 		var menu types.MenuInformationFood
 		err = rows.Scan(
 			&menu.IdFood,
-            &menu.IdRestaurant,
+			&menu.IdRestaurant,
 			&menu.IdCategory,
 			&menu.Name,
 			&menu.Description,

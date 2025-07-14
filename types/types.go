@@ -2,11 +2,85 @@ package types
 
 import "time"
 
+type MonthlyUserStats struct {
+	Month       int `json:"month"`
+	Year        int `json:"year"`
+	NewUsers    int `json:"newUsers"`
+	ActiveUsers int `json:"activeUsers"`
+}
+
+// Add to types/types.go
+
+type UniversalReservationDetails struct {
+	// Common fields
+	ReservationType string    `json:"reservationType"` // "restaurant" or "activity"
+	ReservationID   string    `json:"reservationId"`
+	ClientID        string    `json:"clientId"`
+	Status          string    `json:"status"`
+	CreatedAt       time.Time `json:"createdAt"`
+	ReservationTime time.Time `json:"reservationTime"`
+
+	// Client information
+	ClientFirstName string `json:"clientFirstName"`
+	ClientLastName  string `json:"clientLastName"`
+	ClientEmail     string `json:"clientEmail"`
+	ClientPhone     string `json:"clientPhone"`
+	ClientUsername  string `json:"clientUsername"`
+
+	// Restaurant-specific fields (nil for activities)
+	RestaurantInfo *RestaurantReservationInfo `json:"restaurantInfo,omitempty"`
+
+	// Activity-specific fields (nil for restaurants)
+	ActivityInfo *ActivityReservationInfo `json:"activityInfo,omitempty"`
+}
+
+type RestaurantReservationInfo struct {
+	RestaurantID       string  `json:"restaurantId"`
+	RestaurantName     string  `json:"restaurantName"`
+	RestaurantImage    string  `json:"restaurantImage"`
+	RestaurantLocation string  `json:"restaurantLocation"`
+	Description        string  `json:"description"`
+	Capacity           int     `json:"capacity"`
+	Longitude          float64 `json:"longitude"`
+	Latitude           float64 `json:"latitude"`
+	NumberOfPeople     int     `json:"numberOfPeople"`
+	TableID            string  `json:"tableId,omitempty"`
+
+	// Admin information
+	AdminFirstName string `json:"adminFirstName"`
+	AdminLastName  string `json:"adminLastName"`
+	AdminEmail     string `json:"adminEmail"`
+	AdminPhone     string `json:"adminPhone"`
+}
+
+type ActivityReservationInfo struct {
+	ActivityID          string  `json:"activityId"`
+	ActivityName        string  `json:"activityName"`
+	ActivityDescription string  `json:"activityDescription"`
+	ActivityImage       string  `json:"activityImage"`
+	ActivityType        string  `json:"activityType"`
+	Popularity          int     `json:"popularity"`
+	Longitude           float64 `json:"longitude"`
+	Latitude            float64 `json:"latitude"`
+
+	// Admin information
+	AdminFirstName string `json:"adminFirstName"`
+	AdminLastName  string `json:"adminLastName"`
+	AdminEmail     string `json:"adminEmail"`
+	AdminPhone     string `json:"adminPhone"`
+}
+
+type UserStats struct {
+	TotalUsers        int                `json:"totalUsers"`
+	ActiveUsersToday  int                `json:"activeUsersToday"`
+	NewUsersThisMonth int                `json:"newUsersThisMonth"`
+	MonthlyStats      []MonthlyUserStats `json:"monthlyStats"`
+}
 type LocationItemWithDistance struct {
 	ID                string  `json:"id"`
 	Name              string  `json:"name"`
 	Type              string  `json:"type"` // "Restaurant" or "Activity"
-	Address           *string  `json:"address"`
+	Address           *string `json:"address"`
 	Latitude          float64 `json:"latitude"`
 	Longitude         float64 `json:"longitude"`
 	ImageURL          string  `json:"imageUrl"`
@@ -180,12 +254,12 @@ type ProfilePage struct {
 }
 
 type Activity struct {
-	IdActivity   string   `json:"idActivity"`
-    IdAdminActivity *string   `json:"idAdminActivity"`
-	NameActivity string   `json:"nameActivity"`
-	Description  string   `json:"descriptionActivity"`
-	Langitude    *float64 `json:"longitude" db:"longitude"`
-	Latitude     *float64 `json:"latitude" db:"latitude"`
+	IdActivity      string   `json:"idActivity"`
+	IdAdminActivity *string  `json:"idAdminActivity"`
+	NameActivity    string   `json:"nameActivity"`
+	Description     string   `json:"descriptionActivity"`
+	Langitude       *float64 `json:"longitude" db:"longitude"`
+	Latitude        *float64 `json:"latitude" db:"latitude"`
 
 	IdTypeActivity string `json:"idTypeActivity"`
 	ImageActivite  string `json:"imageActivity"`

@@ -46,6 +46,8 @@ type UserStore interface {
 	GetClientInformationUsername(username string) (*ProfilePage, error)
 	GetClientInformation(idClient string) (*ProfilePage, error)
 	CreateAdminRestaurant(idUser string, idAdminRestaurant string) error
+	GetUserStats() (*UserStats, error)
+	GetMonthlyUserStats() ([]MonthlyUserStats, error)
 
 	UpdateRestaurantAdmin(idRestaurant string, idAdminRestaurant string) error
 	CreateAdminActivity(idUser string, idAdminRestaurant string) error
@@ -71,6 +73,7 @@ type RestaurantStore interface {
 	GetReservationStatsAndList(idRestaurant string) (*ReservationStatsAndList, error)
 	GetFoodRestaurant(idRestaurant string) (*[]Food, error)
 	GetAllClientReservations(idClient string) ([]ClientReservationInfo, error)
+	GetUniversalReservationDetails(reservationId string, reservationType string) (*UniversalReservationDetails, error)
 	CountFirstTimeReservers(idRestaurant string) (int, error)
 	GetRestaurantTables(restaurantId string, timeSlot time.Time) (*[]RestaurantTableStatus, error)
 	GetRecentOrders(idRestaurant string, limit int) ([]RecentOrder, error)
@@ -121,7 +124,7 @@ type RestaurantStore interface {
 	CreateFoodCategory(idCategory, nameCategorie string) error
 	CountOrderReceivedToday(idRestaurant string) (int, error)
 	CountReservationReceivedToday(idRestaurant string) (int, error)
-	GetFoodCategoriesByRestaurant(idRestaurant string) ([]FoodCategory, error)
+	GetFoodCategoriesByRestaurant() ([]FoodCategory, error)
 	DeleteFood(idFood string) error
 	GetAvailableMenuInformation(restaurantId string) (*[]MenuInformationFood, error)
 	ReserveTable(idReservation string, reservation ReservationCreation) error

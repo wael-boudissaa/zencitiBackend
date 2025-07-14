@@ -40,7 +40,7 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/food/unavailable/{idFood}", h.SetFoodUnavailable).Methods("POST")
 	r.HandleFunc("/food", h.CreateFood).Methods("POST")
 	r.HandleFunc("/food/category", h.CreateFoodCategory).Methods("POST")
-	r.HandleFunc("/food/category/{idRestaurant}", h.GetFoodCategoriesByRestaurant).Methods("GET")
+	r.HandleFunc("/food/category", h.GetFoodCategoriesByRestaurant).Methods("GET")
 	r.HandleFunc("/food/{idFood}", h.DeleteFood).Methods("DELETE")
 	r.HandleFunc("/table/{idTable}", h.UpdateTable).Methods("PUT")
 	r.HandleFunc("/table/{idTable}", h.DeleteTable).Methods("DELETE")
@@ -90,6 +90,42 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 
 	//!NOTE: Tables
 	r.HandleFunc("/restaurant/{idRestaurant}/tables/bulk", h.BulkUpdateRestaurantTables).Methods("PUT")
+
+	// Add to RegisterRouter function in services/restaurant/router.go
+	r.HandleFunc("/reservation/{reservationId}/universal", h.GetUniversalReservationDetails).Methods("GET")
+}
+
+// Add to services/restaurant/router.go
+
+func (h *Handler) GetUniversalReservationDetails(w http.ResponseWriter, r *http.Request) {
+	reservationId := mux.Vars(r)["reservationId"]
+	reservationType := r.URL.Query().Get("type") // "restaurant" or "activity"
+
+	if reservationId == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("reservationId is required"))
+		return
+	}
+
+	if reservationType == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("type parameter is required (restaurant or activity)"))
+		return
+	}
+
+	details, err := h.store.GetUniversalReservationDetails(reservationId, reservationType)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			utils.WriteError(w, http.StatusNotFound, err)
+			return
+		}
+		if strings.Contains(err.Error(), "invalid reservation type") {
+			utils.WriteError(w, http.StatusBadRequest, err)
+			return
+		}
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, details)
 }
 
 func (h *Handler) GetRestaurantWorkerWithRatings(w http.ResponseWriter, r *http.Request) {
@@ -663,12 +699,7 @@ func (h *Handler) DeleteFood(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetFoodCategoriesByRestaurant(w http.ResponseWriter, r *http.Request) {
-	idRestaurant := mux.Vars(r)["idRestaurant"]
-	if idRestaurant == "" {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idRestaurant is required"))
-		return
-	}
-	categories, err := h.store.GetFoodCategoriesByRestaurant(idRestaurant)
+	categories, err := h.store.GetFoodCategoriesByRestaurant()
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return

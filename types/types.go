@@ -2,6 +2,30 @@ package types
 
 import "time"
 
+type ActivityDetails struct {
+	IdActivity     string                 `json:"idActivity"`
+	NameActivity   string                 `json:"nameActivity"`
+	Description    string                 `json:"description"`
+	ImageActivite  string                 `json:"imageActivite"`
+	Langitude      float64                `json:"langitude"`
+	Latitude       float64                `json:"latitude"`
+	IdTypeActivity string                 `json:"idTypeActivity"`
+	Popularity     int                    `json:"popularity"`
+    IdAdminActivity string                `json:"idAdminActivity"` // Optional for public activities
+	AdminName      string                 `json:"adminName"`
+	AdminEmail     string                 `json:"adminEmail"`
+	AdminPhone     string                 `json:"adminPhone"`
+	RatingCounts   map[int]int            `json:"ratingCounts"` // e.g. {5: 10, 4: 3, ...}
+	RecentReviews  []ActivityReviewDetail `json:"recentReviews"`
+}
+
+type ActivityReviewDetail struct {
+	ReviewerName string `json:"reviewerName"`
+	Rating       int    `json:"rating"`
+	Comment      string `json:"comment"`
+	CreatedAt    string `json:"createdAt"`
+}
+
 type MonthlyUserStats struct {
 	Month       int `json:"month"`
 	Year        int `json:"year"`

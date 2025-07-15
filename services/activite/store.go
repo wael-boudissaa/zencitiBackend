@@ -3,6 +3,7 @@ package activite
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/wael-boudissaa/zencitiBackend/types"
@@ -284,6 +285,94 @@ func (s *Store) GetRecentActivities(idClient string) (*[]types.ActivityProfile, 
 		return nil, err
 	}
 	return &activite, nil
+}
+
+func (s *Store) GetActivityFullDetails(id string) (*types.ActivityDetails, error) {
+	// 1. Get activity + admin info (admin can be null)
+	query := `
+        SELECT a.idActivity, a.nameActivity, a.descriptionActivity, a.imageActivity, a.longitude, a.latitude, a.idTypeActivity, a.popularity,
+               p.firstName, p.lastName,aa.idAdminActivity, p.email, p.phoneNumber
+        FROM activity a
+        LEFT JOIN adminActivity aa ON a.idAdminActivity = aa.idAdminActivity
+        LEFT JOIN profile p ON aa.idProfile = p.idProfile
+        WHERE a.idActivity = ?
+    `
+	row := s.db.QueryRow(query, id)
+	var act types.ActivityDetails
+	var idAdmin, adminFirst, adminLast, adminEmail, adminPhone sql.NullString
+	err := row.Scan(
+		&act.IdActivity, &act.NameActivity, &act.Description, &act.ImageActivite, &act.Langitude, &act.Latitude, &act.IdTypeActivity, &act.Popularity,
+		&adminFirst, &adminLast, &idAdmin, &adminEmail, &adminPhone,
+	)
+	if err != nil {
+		return nil, err
+	}
+	// If admin is null, return empty strings (not null)
+	if adminFirst.Valid || adminLast.Valid {
+		act.AdminName = strings.TrimSpace(adminFirst.String + " " + adminLast.String)
+	} else {
+		act.AdminName = ""
+	}
+	if adminEmail.Valid {
+		act.AdminEmail = adminEmail.String
+	} else {
+		act.AdminEmail = ""
+	}
+	if adminPhone.Valid {
+		act.AdminPhone = adminPhone.String
+	} else {
+		act.AdminPhone = ""
+	}
+	if idAdmin.Valid {
+		act.IdAdminActivity = adminPhone.String
+	} else {
+		act.IdAdminActivity = ""
+	}
+
+	// 2. Get rating breakdown
+	ratingCounts := make(map[int]int)
+	ratingQuery := `SELECT rating, COUNT(*) FROM rating WHERE idActivity = ? GROUP BY rating`
+	rows, err := s.db.Query(ratingQuery, id)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var rating, count int
+			if err := rows.Scan(&rating, &count); err == nil {
+				ratingCounts[rating] = count
+			}
+		}
+	}
+	// Ensure all 1-5 are present (even if 0)
+	for i := 1; i <= 5; i++ {
+		if _, ok := ratingCounts[i]; !ok {
+			ratingCounts[i] = 0
+		}
+	}
+	act.RatingCounts = ratingCounts
+
+	// 3. Get recent reviews (limit 5)
+	reviewQuery := `
+        SELECT p.firstName, p.lastName, r.rating, r.comment, r.createdAt
+        FROM rating r
+        JOIN client c ON r.idClient = c.idClient
+        JOIN profile p ON c.idProfile = p.idProfile
+        WHERE r.idActivity = ?
+        ORDER BY r.createdAt DESC
+        LIMIT 5
+    `
+	reviewRows, err := s.db.Query(reviewQuery, id)
+	if err == nil {
+		defer reviewRows.Close()
+		for reviewRows.Next() {
+			var rev types.ActivityReviewDetail
+			var first, last string
+			if err := reviewRows.Scan(&first, &last, &rev.Rating, &rev.Comment, &rev.CreatedAt); err == nil {
+				rev.ReviewerName = strings.TrimSpace(first + " " + last)
+				act.RecentReviews = append(act.RecentReviews, rev)
+			}
+		}
+	}
+	return &act, nil
 }
 
 func (s *Store) GetActiviteById(id string) (*types.Activity, error) {

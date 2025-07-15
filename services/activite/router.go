@@ -165,7 +165,7 @@ func (h *Handler) GetActivityNotAvaialbaleAtday(w http.ResponseWriter, r *http.R
 func (h *Handler) GetActiviteById(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	log.Println("ID of activity:", id)
-	activite, err := h.store.GetActiviteById(id)
+	activite, err := h.store.GetActivityFullDetails(id)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return

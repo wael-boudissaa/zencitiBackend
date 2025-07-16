@@ -29,10 +29,17 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/activity/recent/{idClient}", h.GetRecentActivite).Methods("GET")
 	r.HandleFunc("/activity/type/{type}", h.GetActiviteByType).Methods("GET")
 	r.HandleFunc("/activity/type", h.GetActiviteTypes).Methods("GET")
-	r.HandleFunc("/activity/notAvailable", h.GetActivityNotAvaialbaleAtday).Methods("POST")
+	r.HandleFunc("/activity/notAvailable", h.GetActivityNotAvailableAtDay).Methods("POST")
 	r.HandleFunc("/client/{idClient}/activities", h.GetAllClientActivities).Methods("GET")
 	r.HandleFunc("/activity/complete", h.CompleteClientActivity).Methods("POST")
 	r.HandleFunc("/locations", h.GetAllLocationsWithDistances).Methods("POST")
+	r.HandleFunc("/admin/{idAdminActivity}/activities", h.GetActivitiesByAdmin).Methods("GET")
+	// By Activity id
+	// r.HandleFunc("/admin/{idAdminActivity}/stats", h.GetActivityStats).Methods("GET")
+
+	r.HandleFunc("/admin/{idAdminActivity}/stats", h.GetActivityStats).Methods("GET")
+	r.HandleFunc("/booking/{idClientActivity}/status", h.UpdateActivityBookingStatus).Methods("PUT")
+	r.HandleFunc("/activity/rating", h.PostReviewActivity).Methods("POST")
 }
 
 func (h *Handler) GetAllLocationsWithDistances(w http.ResponseWriter, r *http.Request) {
@@ -89,6 +96,7 @@ func (h *Handler) GetAllClientActivities(w http.ResponseWriter, r *http.Request)
 func (h *Handler) CompleteClientActivity(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		IdClientActivity string `json:"idClientActivity"`
+		IdAdminActivity  string `json:"idAdminActivity,omitempty"` // Optional, can be used for admin-specific logic
 	}
 
 	if err := utils.ParseJson(r, &req); err != nil {
@@ -101,7 +109,7 @@ func (h *Handler) CompleteClientActivity(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	err := h.store.UpdateClientActivityStatus(req.IdClientActivity)
+	err := h.store.UpdateClientActivityStatus(req.IdClientActivity, req.IdAdminActivity)
 	if err != nil {
 		// Check for specific error types
 		if strings.Contains(err.Error(), "not found") {
@@ -121,7 +129,7 @@ func (h *Handler) CompleteClientActivity(w http.ResponseWriter, r *http.Request)
 	})
 }
 
-func (h *Handler) GetActivityNotAvaialbaleAtday(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetActivityNotAvailableAtDay(w http.ResponseWriter, r *http.Request) {
 	var req types.TimeNotAvaialable
 	if err := utils.ParseJson(r, &req); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
@@ -133,15 +141,15 @@ func (h *Handler) GetActivityNotAvaialbaleAtday(w http.ResponseWriter, r *http.R
 		return
 	}
 	log.Println("Day received:", req.Day)
-	reservedTimes, err := h.store.GetActivityNotAvaialableAtday(day, req.IdActivity)
+	unavailableTimes, err := h.store.GetActivityNotAvaialableAtday(day, req.IdActivity)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	// Convert []*time.Time to []string in "15:04" format (HH:MM)
+	// Return times when activity is at full capacity (unavailable)
 
-	utils.WriteJson(w, http.StatusOK, reservedTimes)
+	utils.WriteJson(w, http.StatusOK, unavailableTimes)
 } //	func (h *Handler) GetActivite(w http.ResponseWriter, r *http.Request) {
 //		activite, err := h.store.GetActivite()
 //		if err != nil {
@@ -255,4 +263,104 @@ func (h *Handler) CreateActivite(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.WriteJson(w, http.StatusCreated, idClientActivity)
+}
+
+func (h *Handler) GetActivityStats(w http.ResponseWriter, r *http.Request) {
+	idAdminActivity := mux.Vars(r)["idAdminActivity"]
+	if idAdminActivity == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idAdminActivity is required"))
+		return
+	}
+
+	stats, err := h.store.GetActivityStatsAdmin(idAdminActivity)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, stats)
+}
+
+func (h *Handler) GetActivitiesByAdmin(w http.ResponseWriter, r *http.Request) {
+	idAdminActivity := mux.Vars(r)["idAdminActivity"]
+	if idAdminActivity == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idAdminActivity is required"))
+		return
+	}
+
+	activities, err := h.store.GetActivitiesByAdminActivity(idAdminActivity)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, activities)
+}
+
+func (h *Handler) UpdateActivityBookingStatus(w http.ResponseWriter, r *http.Request) {
+	idClientActivity := mux.Vars(r)["idClientActivity"]
+	if idClientActivity == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idClientActivity is required"))
+		return
+	}
+
+	var req struct {
+		Status string `json:"status"`
+	}
+	if err := utils.ParseJson(r, &req); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	// Validate status
+	validStatuses := []string{"pending", "confirmed", "cancelled", "completed"}
+	isValid := false
+	for _, validStatus := range validStatuses {
+		if req.Status == validStatus {
+			isValid = true
+			break
+		}
+	}
+	if !isValid {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid status. Valid statuses are: pending, confirmed, cancelled, completed"))
+		return
+	}
+
+	err := h.store.UpdateActivityStatus(idClientActivity, req.Status)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			utils.WriteError(w, http.StatusNotFound, err)
+			return
+		}
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, map[string]string{
+		"message": fmt.Sprintf("Activity booking status updated to %s successfully", req.Status),
+	})
+}
+
+func (h *Handler) PostReviewActivity(w http.ResponseWriter, r *http.Request) {
+	var review types.PostRatingActivity
+	if err := utils.ParseJson(r, &review); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+	if review.IdClient == "" || review.IdActivity == "" {
+		utils.WriteError(w, http.StatusBadRequest, errors.New("idClient and idActivity are required"))
+		return
+	}
+	idReview, err := utils.CreateAnId()
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	review.IdRating = idReview
+	err = h.store.PostRatingActivity(review)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusCreated, map[string]string{"message": "Review posted successfully"})
 }

@@ -48,6 +48,7 @@ type UserStore interface {
 	CreateAdminRestaurant(idUser string, idAdminRestaurant string) error
 	GetUserStats() (*UserStats, error)
 	GetMonthlyUserStats() ([]MonthlyUserStats, error)
+	CreateActivityWithAdmin(activityData ActivityCreationWithAdmin, profileData ActivityAdminCreation) (string, string, error)
 
 	UpdateRestaurantAdmin(idRestaurant string, idAdminRestaurant string) error
 	CreateAdminActivity(idUser string, idAdminRestaurant string) error
@@ -56,7 +57,8 @@ type UserStore interface {
 type ActiviteStore interface {
 	// GetActivite() (*[]Activite, error)
 	GetAllLocationsWithDistances(clientLat, clientLng float64) (*[]LocationItemWithDistance, error)
-	UpdateClientActivityStatus(idClientActivity string) error
+	UpdateClientActivityStatus(idClientActivity string, idAdminActivity string) error
+	GetActivityStatsAdmin(idAdminActivity string) (*ActivityStats, error)
 	GetRecentActivities(idClient string) (*[]ActivityProfile, error)
 	GetActiviteById(id string) (*Activity, error)
 	GetActivityByTypes(typeActivite string) (*[]Activity, error)
@@ -66,6 +68,10 @@ type ActiviteStore interface {
 	GetActivityNotAvaialableAtday(day time.Time, idActivity string) ([]string, error)
 	GetAllClientActivities(idClient string) ([]ClientActivityInfo, error)
 	GetPopularActivities() (*[]Activity, error)
+	GetActivityStats(idAdminActivity string) (*ActivityStats, error)
+	GetActivitiesByAdminActivity(idAdminActivity string) ([]Activity, error)
+	UpdateActivityStatus(idClientActivity string, status string) error
+	PostRatingActivity(rating PostRatingActivity) error
 }
 
 type RestaurantStore interface {

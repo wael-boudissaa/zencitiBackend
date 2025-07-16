@@ -259,49 +259,49 @@ func (s *Store) UpdateClientLocation(idClient string, longitude, latitude float6
 }
 
 func (s *Store) GetUserByEmail(email string) (*types.User, error) {
-	query := `SELECT 
-	  profile.idProfile,
-	  profile.firstName,
-	  profile.lastName,
-	  profile.email,
-	  profile.password,
-	  profile.createdAt,
-	  profile.refreshToken,
-	  profile.type,
-	  profile.address,
-	  profile.lastLogin,
-	  profile.phoneNumber,
-	  client.idClient,
-	  client.username
-	FROM profile 
-	JOIN client ON profile.idProfile = client.idProfile 
-	WHERE profile.email = ?`
+    query := `SELECT 
+      profile.idProfile,
+      profile.firstName,
+      profile.lastName,
+      profile.email,
+      profile.password,
+      profile.createdAt,
+      profile.refreshToken,
+      profile.type,
+      profile.address,
+      profile.lastLogin,
+      profile.phoneNumber,
+      client.idClient,
+      client.username
+    FROM profile 
+    JOIN client ON profile.idProfile = client.idProfile 
+    WHERE profile.email = ?`
 
-	row := s.db.QueryRow(query, email)
+    row := s.db.QueryRow(query, email)
 
-	u := new(types.User)
-	err := row.Scan(
-		&u.Id,
-		&u.FirstName,
-		&u.LastName,
-		&u.Email,
-		&u.Password,
-		&u.CreatedAt,
-		&u.Refreshtoken,
-		&u.Type,
-		&u.Address,
-		&u.LastLogin,
-		&u.Phone,
-		&u.ClientId,
-		&u.Username,
-	)
-	if err == sql.ErrNoRows {
-		return nil, nil // User not found, return nil without error
-	} else if err != nil {
-		return nil, err // Other error
-	}
+    u := new(types.User)
+    err := row.Scan(
+        &u.Id,
+        &u.FirstName,
+        &u.LastName,
+        &u.Email,
+        &u.Password,
+        &u.CreatedAt,
+        &u.Refreshtoken,
+        &u.Type,
+        &u.Address,
+        &u.LastLogin,
+        &u.Phone,
+        &u.ClientId,
+        &u.Username,
+    )
+    if err == sql.ErrNoRows {
+        return nil, nil // User not found, return nil without error
+    } else if err != nil {
+        return nil, err // Other database error
+    }
 
-	return u, nil
+    return u, nil
 }
 
 func (s *Store) GetAllClients() ([]types.ClientInfo, error) {
@@ -875,4 +875,125 @@ func (s *Store) GetMonthlyUserStats() ([]types.MonthlyUserStats, error) {
 	})
 
 	return result, nil
+}
+
+func (s *Store) CreateActivityWithAdmin(activityData types.ActivityCreationWithAdmin, profileData types.ActivityAdminCreation) (string, string, error) {
+    // Start a transaction to ensure atomicity
+    tx, err := s.db.Begin()
+    if err != nil {
+        return "", "", fmt.Errorf("error starting transaction: %v", err)
+    }
+    defer func() {
+        if err != nil {
+            tx.Rollback()
+        }
+    }()
+
+    // Generate IDs
+    idProfile, err := utils.CreateAnId()
+    if err != nil {
+        return "", "", fmt.Errorf("error generating profile ID: %v", err)
+    }
+
+    idAdminActivity, err := utils.CreateAnId()
+    if err != nil {
+        return "", "", fmt.Errorf("error generating admin activity ID: %v", err)
+    }
+
+    idActivity, err := utils.CreateAnId()
+    if err != nil {
+        return "", "", fmt.Errorf("error generating activity ID: %v", err)
+    }
+
+    // Generate client ID for dual role
+    idClient, err := utils.CreateAnId()
+    if err != nil {
+        return "", "", fmt.Errorf("error generating client ID: %v", err)
+    }
+
+    // Generate username (you might want to make this configurable)
+    username := fmt.Sprintf("admin_%s", idAdminActivity[:8])
+
+    // Hash password
+    hashedPassword, err := utils.HashedPassword(profileData.Password)
+    if err != nil {
+        return "", "", fmt.Errorf("error hashing password: %v", err)
+    }
+
+    // Create refresh token
+    token, err := utils.CreateRefreshToken(idProfile, profileData.Type)
+    if err != nil {
+        return "", "", fmt.Errorf("error creating refresh token: %v", err)
+    }
+
+    // Check if email already exists
+    var emailCount int
+    checkEmailQuery := `SELECT COUNT(*) FROM profile WHERE email = ?`
+    err = tx.QueryRow(checkEmailQuery, profileData.Email).Scan(&emailCount)
+    if err != nil {
+        return "", "", fmt.Errorf("error checking email existence: %v", err)
+    }
+    if emailCount > 0 {
+        return "", "", fmt.Errorf("email %s already exists", profileData.Email)
+    }
+
+    // 1. Create profile
+    profileQuery := `INSERT INTO profile (idProfile, firstName, lastName, email, password, address, createdAt, lastLogin, refreshToken, type, phoneNumber)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+    _, err = tx.Exec(profileQuery,
+        idProfile,
+        profileData.FirstName,
+        profileData.LastName,
+        profileData.Email,
+        string(hashedPassword),
+        profileData.Address,
+        time.Now(),
+        time.Now(),
+        token,
+        profileData.Type,
+        profileData.Phone,
+    )
+    if err != nil {
+        return "", "", fmt.Errorf("error creating profile: %v", err)
+    }
+
+    // 2. Create adminActivity
+    adminQuery := `INSERT INTO adminActivity (idAdminActivity, idProfile) VALUES (?, ?)`
+    _, err = tx.Exec(adminQuery, idAdminActivity, idProfile)
+    if err != nil {
+        return "", "", fmt.Errorf("error creating admin activity: %v", err)
+    }
+
+    // 3. Create client (so they can also be a regular client)
+    clientQuery := `INSERT INTO client (idClient, idProfile, username, longitude, latitude, following, followers) VALUES (?, ?, ?, 0, 0, 0, 0)`
+    _, err = tx.Exec(clientQuery, idClient, idProfile, username)
+    if err != nil {
+        return "", "", fmt.Errorf("error creating client: %v", err)
+    }
+
+    // 4. Create activity
+    activityQuery := `INSERT INTO activity (idActivity, idAdminActivity, nameActivity, descriptionActivity, imageActivity, longitude, latitude, idTypeActivity, capacity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    _, err = tx.Exec(activityQuery,
+        idActivity,
+        idAdminActivity,
+        activityData.Name,
+        activityData.Description,
+        activityData.Image,
+        activityData.Longitude,
+        activityData.Latitude,
+        activityData.IdTypeActivity,
+        10, // Initial capacity
+    )
+    if err != nil {
+        return "", "", fmt.Errorf("error creating activity: %v", err)
+    }
+
+    // Commit the transaction
+    err = tx.Commit()
+    if err != nil {
+        return "", "", fmt.Errorf("error committing transaction: %v", err)
+    }
+
+    return idActivity, token, nil
 }

@@ -14,7 +14,7 @@ type ActivityProfile struct {
     NameActivity  string    `json:"nameActivity"`
     Description   string    `json:"descriptionActivity"`
     ImageActivite string    `json:"imageActivity"`
-    Popularity    int       `json:"popularity"`
+    Capacity      int       `json:"capacity"`
     TimeActivity  time.Time `json:"timeActivity"`
 }
 

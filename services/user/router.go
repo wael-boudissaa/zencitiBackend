@@ -54,6 +54,7 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/admin/login", h.loginRestaurant).Methods("POST")
 	router.HandleFunc("/admin/create", h.CreateAdmin).Methods("POST")
 	router.HandleFunc("/restaurant/create-with-admin", h.CreateRestaurantWithAdmin).Methods("POST")
+	router.HandleFunc("/activity/create-with-admin", h.CreateActivityWithAdmin).Methods("POST")
 
 	router.HandleFunc("/users/stats", h.GetUserStats).Methods("GET")
 }
@@ -363,14 +364,21 @@ func (h *Handler) loginUser(w http.ResponseWriter, r *http.Request) {
 
 	u, err := h.store.GetUserByEmail(user.Email)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, err)
+		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
+	
+	// Add this check to prevent nil pointer dereference
+	if u == nil {
+		utils.WriteError(w, http.StatusUnauthorized, fmt.Errorf("invalid email or password"))
+		return
+	}
+	
 	fmt.Println("User", u)
 
 	//!NOTE: compare the password
 	if !utils.ComparePasswords([]byte(user.Password), []byte(u.Password)) {
-		utils.WriteError(w, http.StatusConflict, fmt.Errorf("Invalid Password"))
+		utils.WriteError(w, http.StatusUnauthorized, fmt.Errorf("invalid email or password"))
 		return
 	}
 
@@ -380,6 +388,7 @@ func (h *Handler) loginUser(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
+	
 	isAdmin, idAdminActivity, err := h.store.IsClientAdminActivity(u.Id)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
@@ -614,4 +623,91 @@ func (h *Handler) GetUsername(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.WriteJson(w, http.StatusOK, map[string]interface{}{"usernames": username})
+}
+
+func (h *Handler) CreateActivityWithAdmin(w http.ResponseWriter, r *http.Request) {
+    // Parse multipart form
+    err := r.ParseMultipartForm(10 << 20)
+    if err != nil {
+        utils.WriteError(w, http.StatusBadRequest, err)
+        return
+    }
+
+    // Parse profile data
+    var profileData types.ActivityAdminCreation
+    profileData.FirstName = r.FormValue("firstName")
+    profileData.LastName = r.FormValue("lastName")
+    profileData.Email = r.FormValue("email")
+    profileData.Phone = r.FormValue("phone")
+    profileData.Address = r.FormValue("address")
+    profileData.Password = r.FormValue("password")
+    profileData.Type = r.FormValue("type")
+
+    // Validate type
+    if profileData.Type != "adminActivity" {
+        utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("type must be adminActivity"))
+        return
+    }
+
+    // Parse activity data
+    var activityData types.ActivityCreationWithAdmin
+    activityData.Name = r.FormValue("activity_name")
+    activityData.Description = r.FormValue("activity_description")
+    activityData.IdTypeActivity = r.FormValue("activity_type")
+
+    // Parse numeric fields
+    if longitudeStr := r.FormValue("activity_longitude"); longitudeStr != "" {
+        longitude, err := strconv.ParseFloat(longitudeStr, 64)
+        if err != nil {
+            utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid longitude format"))
+            return
+        }
+        activityData.Longitude = longitude
+    }
+
+    if latitudeStr := r.FormValue("activity_latitude"); latitudeStr != "" {
+        latitude, err := strconv.ParseFloat(latitudeStr, 64)
+        if err != nil {
+            utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid latitude format"))
+            return
+        }
+        activityData.Latitude = latitude
+    }
+
+    // Handle image upload
+    file, _, err := r.FormFile("activity_image")
+    if err != nil {
+        utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("activity image is required"))
+        return
+    }
+    defer file.Close()
+
+    imageURL, err := utils.UploadImageToCloudinary(file)
+    if err != nil {
+        utils.WriteError(w, http.StatusInternalServerError, err)
+        return
+    }
+    activityData.Image = imageURL
+
+    // Create activity with admin
+    idActivity, token, err := h.store.CreateActivityWithAdmin(activityData, profileData)
+    if err != nil {
+        if strings.Contains(err.Error(), "already exists") {
+            utils.WriteError(w, http.StatusConflict, err)
+            return
+        }
+        utils.WriteError(w, http.StatusInternalServerError, err)
+        return
+    }
+
+    err = utils.SendActivityAdminWelcomeEmail(profileData.Email, profileData.FirstName, profileData.LastName, profileData.Password, activityData.Name)
+    if err != nil {
+        log.Printf("Failed to send welcome email to %s: %v", profileData.Email, err)
+    }
+    utils.WriteJson(w, http.StatusCreated, map[string]interface{}{
+        "message":      "Activity and admin created successfully",
+        "idActivity": idActivity,
+        "token":        token,
+        "image":        imageURL,
+    })
 }

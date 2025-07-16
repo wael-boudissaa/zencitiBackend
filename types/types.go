@@ -1,6 +1,79 @@
 package types
 
 import "time"
+// Add these types to your existing types.go file
+
+type ActivityAdminCreation struct {
+    FirstName   string  `json:"firstName"`
+    LastName    string  `json:"lastName"`
+    Email       string  `json:"email"`
+    Phone       string  `json:"phone"`
+    Address     string  `json:"address"`
+    Password    string  `json:"password"`
+    Type        string  `json:"type"` // should be "adminActivity"
+}
+
+type ActivityCreationWithAdmin struct {
+    Name            string  `json:"name"`
+    Description     string  `json:"description"`
+    Image           string  `json:"image"`
+    Longitude       float64 `json:"longitude"`
+    Latitude        float64 `json:"latitude"`
+    IdTypeActivity  string  `json:"idTypeActivity"`
+}
+
+type ActivityStats struct {
+    TotalBookings      int                    `json:"totalBookings"`
+    CompletedBookings  int                    `json:"completedBookings"`
+    PendingBookings    int                    `json:"pendingBookings"`
+    CancelledBookings  int                    `json:"cancelledBookings"`
+    AvgEngagement      float64               `json:"avgEngagement"`
+    TotalReviews       int                    `json:"totalReviews"`
+    AverageRating      float64               `json:"averageRating"`
+    BookingsToday      int                    `json:"bookingsToday"`
+    BookingsThisWeek   int                    `json:"bookingsThisWeek"`
+    BookingsThisMonth  int                    `json:"bookingsThisMonth"`
+    DailyTrends        []ActivityDailyStats   `json:"dailyTrends"`
+    WeeklyTrends       []ActivityWeeklyStats  `json:"weeklyTrends"`
+    MonthlyTrends      []ActivityMonthlyStats `json:"monthlyTrends"`
+    RecentBookings     []ActivityBookingInfo  `json:"recentBookings"`
+    TopRatedReviews    []ActivityReviewDetail `json:"topRatedReviews"`
+}
+
+type ActivityDailyStats struct {
+    Date     string `json:"date"`
+    Bookings int    `json:"bookings"`
+}
+
+type ActivityWeeklyStats struct {
+    Week     string `json:"week"`
+    Bookings int    `json:"bookings"`
+}
+
+type ActivityMonthlyStats struct {
+    Month    string `json:"month"`
+    Year     int    `json:"year"`
+    Bookings int    `json:"bookings"`
+}
+
+type ActivityBookingInfo struct {
+    ClientName    string    `json:"clientName"`
+    BookingTime   time.Time `json:"bookingTime"`
+    Status        string    `json:"status"`
+    CreatedAt     time.Time `json:"createdAt"`
+}
+
+type AdminActivityProfile struct {
+    IdAdminActivity string    `json:"idAdminActivity"`
+    IdProfile       string    `json:"idProfile"`
+    FirstName       string    `json:"firstName"`
+    LastName        string    `json:"lastName"`
+    Email           string    `json:"email"`
+    Phone           string    `json:"phone"`
+    Address         string    `json:"address"`
+    CreatedAt       time.Time `json:"createdAt"`
+    Activities      []Activity `json:"activities"`
+}
 
 type ActivityDetails struct {
 	IdActivity     string                 `json:"idActivity"`
@@ -10,7 +83,7 @@ type ActivityDetails struct {
 	Langitude      float64                `json:"langitude"`
 	Latitude       float64                `json:"latitude"`
 	IdTypeActivity string                 `json:"idTypeActivity"`
-	Popularity     int                    `json:"popularity"`
+	Capacity       int                    `json:"capacity"`
     IdAdminActivity string                `json:"idAdminActivity"` // Optional for public activities
 	AdminName      string                 `json:"adminName"`
 	AdminEmail     string                 `json:"adminEmail"`
@@ -83,7 +156,7 @@ type ActivityReservationInfo struct {
 	ActivityDescription string  `json:"activityDescription"`
 	ActivityImage       string  `json:"activityImage"`
 	ActivityType        string  `json:"activityType"`
-	Popularity          int     `json:"popularity"`
+	Capacity            int     `json:"capacity"`
 	Longitude           float64 `json:"longitude"`
 	Latitude            float64 `json:"latitude"`
 
@@ -287,7 +360,7 @@ type Activity struct {
 
 	IdTypeActivity string `json:"idTypeActivity"`
 	ImageActivite  string `json:"imageActivity"`
-	Popularity     int    `json:"popularity"`
+	Capacity       int    `json:"capacity"`
 }
 
 type ActivitetType struct {
@@ -528,6 +601,14 @@ type PostRatingRestaurant struct {
 	IdRestaurant string `json:"idRestaurant"`
 	RatingValue  int    `json:"rating"`
 	Comment      string `json:"comment"`
+}
+
+type PostRatingActivity struct {
+	IdRating    string `json:"idRating"`
+	IdClient    string `json:"idClient"`
+	IdActivity  string `json:"idActivity"`
+	RatingValue int    `json:"rating"`
+	Comment     string `json:"comment"`
 }
 
 type RatingRestaurant struct {

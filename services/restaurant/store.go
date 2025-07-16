@@ -150,7 +150,7 @@ func (s *store) getActivityReservationDetails(reservationId string) (*types.Univ
             a.nameActivity,
             a.descriptionActivity,
             a.imageActivity,
-            a.popularity,
+            a.capacity,
             a.longitude,
             a.latitude,
             
@@ -196,7 +196,7 @@ func (s *store) getActivityReservationDetails(reservationId string) (*types.Univ
         &activityInfo.ActivityName,
         &activityInfo.ActivityDescription,
         &activityInfo.ActivityImage,
-        &activityInfo.Popularity,
+        &activityInfo.Capacity,
         &activityInfo.Longitude,
         &activityInfo.Latitude,
         

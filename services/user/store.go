@@ -983,7 +983,7 @@ func (s *Store) CreateActivityWithAdmin(activityData types.ActivityCreationWithA
         activityData.Longitude,
         activityData.Latitude,
         activityData.IdTypeActivity,
-        10, // Initial capacity
+        activityData.Capacity, // Use capacity from form data
     )
     if err != nil {
         return "", "", fmt.Errorf("error creating activity: %v", err)
@@ -996,4 +996,181 @@ func (s *Store) CreateActivityWithAdmin(activityData types.ActivityCreationWithA
     }
 
     return idActivity, token, nil
+}
+
+func (s *Store) GetGeneralAdminByEmail(email string) (*types.User, error) {
+    query := `
+        SELECT p.idProfile, p.firstName, p.lastName, p.email, p.password, p.type, p.address, p.phoneNumber
+        FROM profile p
+        WHERE p.email = ? AND p.type = 'admin'
+    `
+    
+    var u types.User
+    err := s.db.QueryRow(query, email).Scan(
+        &u.Id, &u.FirstName, &u.LastName, &u.Email, &u.Password, &u.Type, &u.Address, &u.Phone,
+    )
+    if err != nil {
+        if err == sql.ErrNoRows {
+            return nil, nil
+        }
+        return nil, fmt.Errorf("error getting admin by email: %v", err)
+    }
+    
+    return &u, nil
+}
+
+func (s *Store) GetAllCampusUsers() ([]types.CampusUser, error) {
+    query := `
+        SELECT 
+            p.idProfile, p.firstName, p.lastName, p.email, p.type, p.address, p.phoneNumber, p.createdAt,
+            c.idClient, c.username,
+            a.idAdmin,
+            aa.idAdminActivity,
+            ar.idAdminRestaurant
+        FROM profile p
+        LEFT JOIN client c ON p.idProfile = c.idProfile
+        LEFT JOIN admin a ON p.idProfile = a.idProfile
+        LEFT JOIN adminActivity aa ON p.idProfile = aa.idProfile
+        LEFT JOIN adminRestaurant ar ON p.idProfile = ar.idProfile
+        ORDER BY p.createdAt DESC
+    `
+    
+    rows, err := s.db.Query(query)
+    if err != nil {
+        return nil, fmt.Errorf("error getting campus users: %v", err)
+    }
+    defer rows.Close()
+    
+    var users []types.CampusUser
+    
+    for rows.Next() {
+        var user types.CampusUser
+        var idClient, username, idAdmin, idAdminActivity, idAdminRestaurant sql.NullString
+        var address, phoneNumber sql.NullString
+        
+        err := rows.Scan(
+            &user.IdProfile, &user.FirstName, &user.LastName, &user.Email, &user.Type,
+            &address, &phoneNumber, &user.CreatedAt,
+            &idClient, &username, &idAdmin, &idAdminActivity, &idAdminRestaurant,
+        )
+        if err != nil {
+            return nil, fmt.Errorf("error scanning user row: %v", err)
+        }
+        
+        // Set nullable fields
+        if address.Valid {
+            user.Address = &address.String
+        }
+        if phoneNumber.Valid {
+            user.PhoneNumber = &phoneNumber.String
+        }
+        if username.Valid {
+            user.Username = &username.String
+        }
+        if idClient.Valid {
+            user.IdClient = &idClient.String
+        }
+        if idAdmin.Valid {
+            user.IdAdmin = &idAdmin.String
+        }
+        if idAdminActivity.Valid {
+            user.IdAdminActivity = &idAdminActivity.String
+        }
+        if idAdminRestaurant.Valid {
+            user.IdAdminRestaurant = &idAdminRestaurant.String
+        }
+        
+        // Determine roles
+        var roles []string
+        roles = append(roles, user.Type) // Primary type
+        
+        if idClient.Valid {
+            if user.Type != "client" {
+                roles = append(roles, "client")
+            }
+        }
+        if idAdminActivity.Valid {
+            if user.Type != "adminActivity" {
+                roles = append(roles, "adminActivity")
+            }
+        }
+        if idAdminRestaurant.Valid {
+            if user.Type != "adminRestaurant" {
+                roles = append(roles, "adminRestaurant")
+            }
+        }
+        if idAdmin.Valid {
+            if user.Type != "admin" {
+                roles = append(roles, "admin")
+            }
+        }
+        
+        user.Roles = roles
+        users = append(users, user)
+    }
+    
+    return users, nil
+}
+
+func (s *Store) AssignUserToRole(idUser string, role string) error {
+    // First check if user exists
+    var userExists bool
+    checkQuery := `SELECT EXISTS(SELECT 1 FROM profile WHERE idProfile = ?)`
+    err := s.db.QueryRow(checkQuery, idUser).Scan(&userExists)
+    if err != nil {
+        return fmt.Errorf("error checking user existence: %v", err)
+    }
+    if !userExists {
+        return fmt.Errorf("user not found")
+    }
+    
+    // Generate new ID for the role
+    newRoleId, err := utils.CreateAnId()
+    if err != nil {
+        return fmt.Errorf("error generating role ID: %v", err)
+    }
+    
+    // Assign the role based on type
+    switch role {
+    case "adminActivity":
+        // Check if already assigned
+        var exists bool
+        checkExistsQuery := `SELECT EXISTS(SELECT 1 FROM adminActivity WHERE idProfile = ?)`
+        err = s.db.QueryRow(checkExistsQuery, idUser).Scan(&exists)
+        if err != nil {
+            return fmt.Errorf("error checking existing adminActivity assignment: %v", err)
+        }
+        if exists {
+            return fmt.Errorf("user is already assigned as adminActivity")
+        }
+        
+        insertQuery := `INSERT INTO adminActivity (idAdminActivity, idProfile) VALUES (?, ?)`
+        _, err = s.db.Exec(insertQuery, newRoleId, idUser)
+        if err != nil {
+            return fmt.Errorf("error assigning adminActivity role: %v", err)
+        }
+        
+    case "adminRestaurant":
+        // Check if already assigned
+        var exists bool
+        checkExistsQuery := `SELECT EXISTS(SELECT 1 FROM adminRestaurant WHERE idProfile = ?)`
+        err = s.db.QueryRow(checkExistsQuery, idUser).Scan(&exists)
+        if err != nil {
+            return fmt.Errorf("error checking existing adminRestaurant assignment: %v", err)
+        }
+        if exists {
+            return fmt.Errorf("user is already assigned as adminRestaurant")
+        }
+        
+        insertQuery := `INSERT INTO adminRestaurant (idAdminRestaurant, idProfile) VALUES (?, ?)`
+        _, err = s.db.Exec(insertQuery, newRoleId, idUser)
+        if err != nil {
+            return fmt.Errorf("error assigning adminRestaurant role: %v", err)
+        }
+        
+    default:
+        return fmt.Errorf("invalid role: %s", role)
+    }
+    
+    return nil
 }

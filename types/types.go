@@ -4,13 +4,13 @@ import "time"
 // Add these types to your existing types.go file
 
 type ActivityAdminCreation struct {
-    FirstName   string  `json:"firstName"`
-    LastName    string  `json:"lastName"`
-    Email       string  `json:"email"`
-    Phone       string  `json:"phone"`
-    Address     string  `json:"address"`
-    Password    string  `json:"password"`
-    Type        string  `json:"type"` // should be "adminActivity"
+    FirstName   string  `json:"admin_firstName"`
+    LastName    string  `json:"admin_lastName"`
+    Email       string  `json:"admin_email"`
+    Phone       string  `json:"admin_phone"`
+    Address     string  `json:"admin_address"`
+    Password    string  `json:"admin_password"`
+    Type        string  `json:"admin_type"` // should be "adminActivity"
 }
 
 type ActivityCreationWithAdmin struct {
@@ -20,6 +20,7 @@ type ActivityCreationWithAdmin struct {
     Longitude       float64 `json:"longitude"`
     Latitude        float64 `json:"latitude"`
     IdTypeActivity  string  `json:"idTypeActivity"`
+    Capacity        int     `json:"capacity"`
 }
 
 type ActivityStats struct {
@@ -172,6 +173,23 @@ type UserStats struct {
 	ActiveUsersToday  int                `json:"activeUsersToday"`
 	NewUsersThisMonth int                `json:"newUsersThisMonth"`
 	MonthlyStats      []MonthlyUserStats `json:"monthlyStats"`
+}
+
+type CampusUser struct {
+	IdProfile     string   `json:"idProfile"`
+	FirstName     string   `json:"firstName"`
+	LastName      string   `json:"lastName"`
+	Email         string   `json:"email"`
+	Type          string   `json:"type"`
+	Address       *string  `json:"address"`
+	PhoneNumber   *string  `json:"phoneNumber"`
+	CreatedAt     string   `json:"createdAt"`
+	Username      *string  `json:"username,omitempty"`      // only for clients
+	Roles         []string `json:"roles"`                   // can be multiple: ["client", "adminActivity"]
+	IdClient      *string  `json:"idClient,omitempty"`
+	IdAdmin       *string  `json:"idAdmin,omitempty"`
+	IdAdminActivity *string `json:"idAdminActivity,omitempty"`
+	IdAdminRestaurant *string `json:"idAdminRestaurant,omitempty"`
 }
 type LocationItemWithDistance struct {
 	ID                string  `json:"id"`
@@ -368,6 +386,12 @@ type ActivitetType struct {
 	NameActiviteType string `json:"nameTypeActivity"`
 	ImageActivity    string `json:"imageActivity"`
 }
+// ActivityCategoryCreation represents the data needed to create a new activity category
+type ActivityCategoryCreation struct {
+	NameTypeActivity string `json:"nameTypeActivity"`
+	ImageActivity    string `json:"imageActivity"`
+}
+
 type Restaurant struct {
 	IdRestaurant      *string  `json:"idRestaurant" db:"idRestaurant"`
 	IdAdminRestaurant *string  `json:"idAdminRestaurant" db:"idAdminRestaurant"`

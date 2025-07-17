@@ -29,6 +29,7 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/activity/recent/{idClient}", h.GetRecentActivite).Methods("GET")
 	r.HandleFunc("/activity/type/{type}", h.GetActiviteByType).Methods("GET")
 	r.HandleFunc("/activity/type", h.GetActiviteTypes).Methods("GET")
+	r.HandleFunc("/activity/type/create", h.CreateActivityCategory).Methods("POST")
 	r.HandleFunc("/activity/notAvailable", h.GetActivityNotAvailableAtDay).Methods("POST")
 	r.HandleFunc("/client/{idClient}/activities", h.GetAllClientActivities).Methods("GET")
 	r.HandleFunc("/activity/complete", h.CompleteClientActivity).Methods("POST")
@@ -363,4 +364,57 @@ func (h *Handler) PostReviewActivity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	utils.WriteJson(w, http.StatusCreated, map[string]string{"message": "Review posted successfully"})
+}
+
+// CreateActivityCategory creates a new activity category
+func (h *Handler) CreateActivityCategory(w http.ResponseWriter, r *http.Request) {
+	// Parse form data
+	err := r.ParseMultipartForm(10 << 20) // 10 MB max
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("error parsing form: %v", err))
+		return
+	}
+
+	// Get form values
+	nameTypeActivity := r.FormValue("nameTypeActivity")
+	if nameTypeActivity == "" {
+		utils.WriteError(w, http.StatusBadRequest, errors.New("nameTypeActivity is required"))
+		return
+	}
+
+	// Handle image upload
+	file, _, err := r.FormFile("imageActivity")
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("imageActivity is required"))
+		return
+	}
+	defer file.Close()
+
+	// Upload image to Cloudinary
+	imageURL, err := utils.UploadImageToCloudinary(file)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("error uploading image: %v", err))
+		return
+	}
+
+	// Create the category data
+	categoryData := types.ActivityCategoryCreation{
+		NameTypeActivity: nameTypeActivity,
+		ImageActivity:    imageURL,
+	}
+
+	// Create the category in the database
+	categoryID, err := h.store.CreateActivityCategory(categoryData)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("failed to create activity category: %v", err))
+		return
+	}
+
+	// Return success response with the new category ID
+	response := map[string]interface{}{
+		"message":        "Activity category created successfully",
+		"idTypeActivity": categoryID,
+		"imageURL":       imageURL,
+	}
+	utils.WriteJson(w, http.StatusCreated, response)
 }

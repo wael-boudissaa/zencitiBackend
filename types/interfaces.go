@@ -31,6 +31,9 @@ type UserStore interface {
 	AssignClientToAdminActivity(idClient string) error
 	GetUserByEmail(email string) (*User, error)
 	GetAdminByEmail(email string) (*UserAdmin, error)
+	GetGeneralAdminByEmail(email string) (*User, error)
+	GetAllCampusUsers() ([]CampusUser, error)
+	AssignUserToRole(idUser string, role string) error
 	GetAllClients() ([]ClientInfo, error)
 	UpdateClientLocation(idClient string, longitude, latitude float64) error
 	GetUserById(user User) (*User, error)
@@ -63,6 +66,7 @@ type ActiviteStore interface {
 	GetActiviteById(id string) (*Activity, error)
 	GetActivityByTypes(typeActivite string) (*[]Activity, error)
 	GetActiviteTypes() (*[]ActivitetType, error)
+	CreateActivityCategory(category ActivityCategoryCreation) (string, error)
 	CreateActivityClient(idClientActivity string, act ActivityCreation) error
 	GetActivityFullDetails(id string) (*ActivityDetails, error)
 	GetActivityNotAvaialableAtday(day time.Time, idActivity string) ([]string, error)

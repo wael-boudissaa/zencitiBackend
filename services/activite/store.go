@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/wael-boudissaa/zencitiBackend/types"
+	"github.com/wael-boudissaa/zencitiBackend/utils"
 )
 
 type Store struct {
@@ -435,6 +436,23 @@ func (s *Store) GetActiviteTypes() (*[]types.ActivitetType, error) {
 	return &activite, nil
 }
 
+// CreateActivityCategory creates a new activity category and returns the generated ID
+func (s *Store) CreateActivityCategory(category types.ActivityCategoryCreation) (string, error) {
+	// Generate a unique ID using the standard project UUID generator
+	newID, err := utils.CreateAnId()
+	if err != nil {
+		return "", fmt.Errorf("error generating ID for activity category: %v", err)
+	}
+
+	query := `INSERT INTO typeActivity (idTypeActivity, nameTypeActivity, imageActivity) VALUES (?, ?, ?)`
+	_, err = s.db.Exec(query, newID, category.NameTypeActivity, category.ImageActivity)
+	if err != nil {
+		return "", fmt.Errorf("error creating activity category: %v", err)
+	}
+
+	return newID, nil
+}
+
 func (s *Store) GetActivityByTypes(id string) (*[]types.Activity, error) {
 	query := `SELECT * FROM activity WHERE idTypeActivity = ?`
 	rows, err := s.db.Query(query, id)
@@ -470,7 +488,23 @@ func (s *Store) GetActivityByTypes(id string) (*[]types.Activity, error) {
 }
 
 func (s *Store) GetPopularActivities() (*[]types.Activity, error) {
-	query := `SELECT * FROM activity ORDER BY capacity DESC`
+	query := `
+		SELECT 
+			a.idActivity, 
+			a.nameActivity, 
+			a.descriptionActivity, 
+			a.imageActivity, 
+			a.longitude, 
+			a.latitude, 
+			a.idAdminActivity, 
+			a.idTypeActivity, 
+			a.capacity
+		FROM activity a
+		LEFT JOIN rating r ON a.idActivity = r.idActivity AND r.ratingType = 'activity'
+		GROUP BY a.idActivity, a.nameActivity, a.descriptionActivity, a.imageActivity, 
+		         a.longitude, a.latitude, a.idAdminActivity, a.idTypeActivity, a.capacity
+		ORDER BY IFNULL(AVG(r.rating), 0) DESC, a.nameActivity ASC
+	`
 	rows, err := s.db.Query(query)
 	if err != nil {
 		return nil, err
@@ -485,6 +519,9 @@ func (s *Store) GetPopularActivities() (*[]types.Activity, error) {
 			&act.NameActivity,
 			&act.Description,
 			&act.ImageActivite,
+			&act.Langitude,
+			&act.Latitude,
+			&act.IdAdminActivity,
 			&act.IdTypeActivity,
 			&act.Capacity,
 		)

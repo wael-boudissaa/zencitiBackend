@@ -46,12 +46,15 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/username", h.GetUsername).Methods("GET")
 	router.HandleFunc("/admin/assignactivity", h.AssignClientToAdminActivity).Methods("POST")
 	router.HandleFunc("/admin/clients", h.GetAllClients).Methods("GET")
+	router.HandleFunc("/admin/campus/users", h.GetAllCampusUsers).Methods("GET")
+	router.HandleFunc("/admin/assign/user", h.AssignUserToRole).Methods("POST")
 
 	//!NOTE: admin
 	router.HandleFunc("/admin/{idAdmin}/location", h.SetAdminLocation).Methods("PUT")
 	router.HandleFunc("/api/admin/{idAdmin}/location", h.GetAdminLocation).Methods("GET")
 
-	router.HandleFunc("/admin/login", h.loginRestaurant).Methods("POST")
+	router.HandleFunc("/admin/restaurant/login", h.loginRestaurant).Methods("POST")
+	router.HandleFunc("/admin/login", h.loginAdmin).Methods("POST")
 	router.HandleFunc("/admin/create", h.CreateAdmin).Methods("POST")
 	router.HandleFunc("/restaurant/create-with-admin", h.CreateRestaurantWithAdmin).Methods("POST")
 	router.HandleFunc("/activity/create-with-admin", h.CreateActivityWithAdmin).Methods("POST")
@@ -279,6 +282,50 @@ func (h *Handler) loginRestaurant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.WriteJson(w, http.StatusOK, map[string]interface{}{"token": token, "user": u})
+}
+
+func (h *Handler) loginAdmin(w http.ResponseWriter, r *http.Request) {
+	var user types.UserLogin
+	if err := utils.ParseJson(r, &user); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	u, err := h.store.GetGeneralAdminByEmail(user.Email)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+	
+	if u == nil {
+		utils.WriteError(w, http.StatusUnauthorized, fmt.Errorf("invalid email or password"))
+		return
+	}
+	
+	// Check if user is admin type
+	if u.Type != "admin" {
+		utils.WriteError(w, http.StatusUnauthorized, fmt.Errorf("access denied: not an admin"))
+		return
+	}
+
+	//!NOTE: compare the password
+	if !utils.ComparePasswords([]byte(user.Password), []byte(u.Password)) {
+		utils.WriteError(w, http.StatusUnauthorized, fmt.Errorf("invalid email or password"))
+		return
+	}
+
+	//!NOTE: create a token
+	token, err := utils.CreateRefreshToken(u.Id, u.Type)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, map[string]interface{}{
+		"token": token, 
+		"user": u,
+		"message": "Admin login successful",
+	})
 }
 
 func (h *Handler) CreateAdmin(w http.ResponseWriter, r *http.Request) {
@@ -635,13 +682,13 @@ func (h *Handler) CreateActivityWithAdmin(w http.ResponseWriter, r *http.Request
 
     // Parse profile data
     var profileData types.ActivityAdminCreation
-    profileData.FirstName = r.FormValue("firstName")
-    profileData.LastName = r.FormValue("lastName")
-    profileData.Email = r.FormValue("email")
-    profileData.Phone = r.FormValue("phone")
-    profileData.Address = r.FormValue("address")
-    profileData.Password = r.FormValue("password")
-    profileData.Type = r.FormValue("type")
+    profileData.FirstName = r.FormValue("admin_firstName")
+    profileData.LastName = r.FormValue("admin_lastName")
+    profileData.Email = r.FormValue("admin_email")
+    profileData.Phone = r.FormValue("admin_phone")
+    profileData.Address = r.FormValue("admin_address")
+    profileData.Password = r.FormValue("admin_password")
+    profileData.Type = r.FormValue("admin_type")
 
     // Validate type
     if profileData.Type != "adminActivity" {
@@ -672,6 +719,23 @@ func (h *Handler) CreateActivityWithAdmin(w http.ResponseWriter, r *http.Request
             return
         }
         activityData.Latitude = latitude
+    }
+
+    // Parse capacity field
+    if capacityStr := r.FormValue("activity_capacity"); capacityStr != "" {
+        capacity, err := strconv.Atoi(capacityStr)
+        if err != nil {
+            utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid capacity format"))
+            return
+        }
+        if capacity <= 0 {
+            utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("capacity must be greater than 0"))
+            return
+        }
+        activityData.Capacity = capacity
+    } else {
+        // Default capacity
+        activityData.Capacity = 10
     }
 
     // Handle image upload
@@ -710,4 +774,53 @@ func (h *Handler) CreateActivityWithAdmin(w http.ResponseWriter, r *http.Request
         "token":        token,
         "image":        imageURL,
     })
+}
+
+func (h *Handler) GetAllCampusUsers(w http.ResponseWriter, r *http.Request) {
+	users, err := h.store.GetAllCampusUsers()
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, users)
+}
+
+func (h *Handler) AssignUserToRole(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		IdUser string `json:"idUser"`
+		Role   string `json:"role"` // "adminActivity", "adminRestaurant"
+	}
+	if err := utils.ParseJson(r, &req); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if req.IdUser == "" || req.Role == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idUser and role are required"))
+		return
+	}
+
+	// Validate role
+	validRoles := map[string]bool{
+		"adminActivity": true,
+		"adminRestaurant": true,
+	}
+	if !validRoles[req.Role] {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid role. Valid roles: adminActivity, adminRestaurant"))
+		return
+	}
+
+	err := h.store.AssignUserToRole(req.IdUser, req.Role)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			utils.WriteError(w, http.StatusNotFound, err)
+			return
+		}
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, map[string]string{
+		"message": fmt.Sprintf("User assigned to %s role successfully", req.Role),
+	})
 }

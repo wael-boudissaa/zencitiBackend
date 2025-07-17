@@ -41,7 +41,7 @@ func UploadImage(cld *cloudinary.Cloudinary, ctx context.Context, image string) 
 		return
 	}
 
-	fmt.Println("**** 1. Uploaded Image ****\nDelivery URL:", resp.SecureURL, "\n")
+	fmt.Println("**** 1. Uploaded Image ****\nDelivery URL:", resp.SecureURL)
 }
 
 func UploadImageToCloudinary(file multipart.File) (string, error) {
@@ -71,7 +71,7 @@ func GetAssetInfo(cld *cloudinary.Cloudinary, ctx context.Context) {
 		return
 	}
 
-	fmt.Println("**** 2. Asset Details ****\n", resp, "\n")
+	fmt.Println("**** 2. Asset Details ****\n", resp)
 
 	var tags []string
 	if resp.Width > 900 {
@@ -89,7 +89,7 @@ func GetAssetInfo(cld *cloudinary.Cloudinary, ctx context.Context) {
 		return
 	}
 
-	fmt.Println("**** 3. Updated Tags ****\nTags:", updateResp.Tags, "\n")
+	fmt.Println("**** 3. Updated Tags ****\nTags:", updateResp.Tags)
 }
 
 func TransformImage(cld *cloudinary.Cloudinary, ctx context.Context) {
@@ -108,5 +108,5 @@ func TransformImage(cld *cloudinary.Cloudinary, ctx context.Context) {
 		return
 	}
 
-	fmt.Println("**** 4. Transformed Image ****\nTransformation URL:", transformedURL, "\n")
+	fmt.Println("**** 4. Transformed Image ****\nTransformation URL:", transformedURL)
 }

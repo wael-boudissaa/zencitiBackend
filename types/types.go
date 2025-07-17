@@ -392,6 +392,78 @@ type ActivityCategoryCreation struct {
 	ImageActivity    string `json:"imageActivity"`
 }
 
+// Notification represents a notification in the system
+type Notification struct {
+	IdNotification string `json:"idNotification"`
+	IdAdmin        string `json:"idAdmin"`
+	Titre          string `json:"titre"`
+	Type           string `json:"type"`
+	Description    string `json:"description"`
+}
+
+// NotificationCreation represents the data needed to create a new notification
+type NotificationCreation struct {
+	IdAdmin     string `json:"idAdmin"`
+	Titre       string `json:"titre"`
+	Type        string `json:"type"`
+	Description string `json:"description"`
+}
+
+// Feedback represents feedback from a client
+type Feedback struct {
+	IdFeedback int    `json:"idFeedback"`
+	IdClient   string `json:"idClient"`
+	Comment    string `json:"comment"`
+	CreatedAt  string `json:"createdAt"`
+	// Client information
+	ClientFirstName string `json:"clientFirstName,omitempty"`
+	ClientLastName  string `json:"clientLastName,omitempty"`
+	ClientUsername  string `json:"clientUsername,omitempty"`
+	ClientEmail     string `json:"clientEmail,omitempty"`
+}
+
+// FeedbackCreation represents the data needed to create new feedback
+type FeedbackCreation struct {
+	IdClient string `json:"idClient"`
+	Comment  string `json:"comment"`
+}
+
+// Missing types for interface compatibility
+type ReservationStatsAndList struct {
+	TotalToday           int                     `json:"totalToday"`
+	UpcomingReservation  int                     `json:"upcomingReservation"`
+	ConfirmedRate        float64                 `json:"confirmedRate"`
+	TodayReservations    []ReservationDetailsR   `json:"todayReservations"`
+	UpcomingReservations []ReservationDetailsR   `json:"upcomingReservations"`
+}
+
+type ReservationDetailsR struct {
+	FirstName      string `json:"firstName"`
+	LastName       string `json:"lastName"`
+	TimeFrom       string `json:"timeFrom"`
+	NumberOfPeople int    `json:"numberOfPeople"`
+}
+
+type Rating struct {
+	IdRating     string `json:"idRating"`
+	RatingValue  int    `json:"rating"`
+	Comment      string `json:"comment"`
+	CreatedAt    string `json:"createdAt"`
+	FirstName    string `json:"firstName"`
+	LastName     string `json:"lastName"`
+}
+
+type UpcomingReservationInfo struct {
+	IdReservation  string `json:"idReservation"`
+	FirstName      string `json:"firstName"`
+	LastName       string `json:"lastName"`
+	NumberPeople   int    `json:"numberPeople"`
+	Date           string `json:"date"`
+	Day            string `json:"day"`
+	Time           string `json:"time"`
+	IdTable        string `json:"idTable"`
+}
+
 type Restaurant struct {
 	IdRestaurant      *string  `json:"idRestaurant" db:"idRestaurant"`
 	IdAdminRestaurant *string  `json:"idAdminRestaurant" db:"idAdminRestaurant"`
@@ -747,44 +819,4 @@ type FeedBack struct {
 	IDFeedBack string `json:"idFeedback"`
 	Comment    string `json:"comment"`
 	CreatedAt  string `json:"createdAt"`
-}
-type Notification struct {
-	IdNotification string `json:"idNotification"`
-	IdAdmin        string `json:"idAdmin"`
-	Titre          string `json:"titre"`
-	Type           string `json:"type"`
-	Description    string `json:"description"`
-}
-
-type Rating struct {
-	FirstName   string    `json:"firstName"`
-	LastName    string    `json:"lastName"`
-	Comment     string    `json:"comment"`
-	RatingValue int       `json:"rating"`
-	CreatedAt   time.Time `json:"createdAt"`
-}
-
-type ReservationDetailsR struct {
-	FirstName      string    `json:"firstName"`
-	LastName       string    `json:"lastName"`
-	TimeFrom       time.Time `json:"timeFrom"`
-	NumberOfPeople int       `json:"numberOfPeople"`
-}
-type UpcomingReservationInfo struct {
-	IdReservation string  `json:"idReservation"`
-	FirstName     string  `json:"firstName"`
-	LastName      string  `json:"lastName"`
-	NumberPeople  int     `json:"numberPeople"`
-	Date          string  `json:"date"`
-	Day           string  `json:"day"`
-	Time          string  `json:"time"`
-	IdTable       *string `json:"idTable"`
-}
-
-type ReservationStatsAndList struct {
-	TotalToday           int                   `json:"totalToday"`
-	UpcomingReservation  int                   `json:"upcomingReservation"`
-	ConfirmedRate        int                   `json:"confirmedRate"`
-	TodayReservations    []ReservationDetailsR `json:"todayReservations"`
-	UpcomingReservations []ReservationDetailsR `json:"upcomingReservations"`
 }

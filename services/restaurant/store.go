@@ -2603,7 +2603,8 @@ func (s *store) GetReservationStatsAndList(idRestaurant string) (*types.Reservat
 			(SELECT COUNT(*) FROM reservation WHERE timeFrom > CURDATE() AND idRestaurant = ?) AS upcomingReservations,
 			(SELECT IFNULL(ROUND((SELECT COUNT(*) FROM reservation WHERE status = 'confirmed' AND idRestaurant = ?) * 100.0 / NULLIF((SELECT COUNT(*) FROM reservation WHERE idRestaurant = ?), 0)),0)) AS confirmedRate
 	`
-	var totalToday, upcomingReservations, confirmedRate int
+	var totalToday, upcomingReservations int
+	var confirmedRate float64
 	err := s.db.QueryRow(queryStats, idRestaurant, idRestaurant, idRestaurant, idRestaurant).Scan(&totalToday, &upcomingReservations, &confirmedRate)
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving reservation stats: %v", err)

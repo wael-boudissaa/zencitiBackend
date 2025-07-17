@@ -52,6 +52,15 @@ type UserStore interface {
 	GetUserStats() (*UserStats, error)
 	GetMonthlyUserStats() ([]MonthlyUserStats, error)
 	CreateActivityWithAdmin(activityData ActivityCreationWithAdmin, profileData ActivityAdminCreation) (string, string, error)
+	
+	// Notification methods
+	CreateNotification(notification NotificationCreation) (string, error)
+	GetNotificationsByAdmin(idAdmin string) ([]Notification, error)
+	GetAllNotifications() ([]Notification, error)
+	
+	// Feedback methods
+	CreateFeedback(feedback FeedbackCreation) error
+	GetAllFeedbackWithClientInfo() ([]Feedback, error)
 
 	UpdateRestaurantAdmin(idRestaurant string, idAdminRestaurant string) error
 	CreateAdminActivity(idUser string, idAdminRestaurant string) error

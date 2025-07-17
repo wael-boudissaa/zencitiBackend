@@ -48,6 +48,15 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/admin/clients", h.GetAllClients).Methods("GET")
 	router.HandleFunc("/admin/campus/users", h.GetAllCampusUsers).Methods("GET")
 	router.HandleFunc("/admin/assign/user", h.AssignUserToRole).Methods("POST")
+	
+	// Notification routes
+	router.HandleFunc("/notifications", h.CreateNotification).Methods("POST")
+	router.HandleFunc("/notifications/admin/{idAdmin}", h.GetNotificationsByAdmin).Methods("GET")
+	router.HandleFunc("/notifications", h.GetAllNotifications).Methods("GET")
+	
+	// Feedback routes
+	router.HandleFunc("/feedback", h.CreateFeedback).Methods("POST")
+	router.HandleFunc("/feedback/all", h.GetAllFeedback).Methods("GET")
 
 	//!NOTE: admin
 	router.HandleFunc("/admin/{idAdmin}/location", h.SetAdminLocation).Methods("PUT")
@@ -823,4 +832,94 @@ func (h *Handler) AssignUserToRole(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJson(w, http.StatusOK, map[string]string{
 		"message": fmt.Sprintf("User assigned to %s role successfully", req.Role),
 	})
+}
+
+// CreateNotification creates a new notification
+func (h *Handler) CreateNotification(w http.ResponseWriter, r *http.Request) {
+	var notification types.NotificationCreation
+	if err := utils.ParseJson(r, &notification); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	// Validate required fields
+	if notification.IdAdmin == "" || notification.Titre == "" || notification.Type == "" || notification.Description == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idAdmin, titre, type, and description are required"))
+		return
+	}
+
+	notificationID, err := h.store.CreateNotification(notification)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusCreated, map[string]interface{}{
+		"message":        "Notification created successfully",
+		"idNotification": notificationID,
+	})
+}
+
+// GetNotificationsByAdmin retrieves all notifications for a specific admin
+func (h *Handler) GetNotificationsByAdmin(w http.ResponseWriter, r *http.Request) {
+	idAdmin := mux.Vars(r)["idAdmin"]
+	if idAdmin == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idAdmin is required"))
+		return
+	}
+
+	notifications, err := h.store.GetNotificationsByAdmin(idAdmin)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, notifications)
+}
+
+// GetAllNotifications retrieves all notifications
+func (h *Handler) GetAllNotifications(w http.ResponseWriter, r *http.Request) {
+	notifications, err := h.store.GetAllNotifications()
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, notifications)
+}
+
+// CreateFeedback creates new feedback from a client
+func (h *Handler) CreateFeedback(w http.ResponseWriter, r *http.Request) {
+	var feedback types.FeedbackCreation
+	if err := utils.ParseJson(r, &feedback); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	// Validate required fields
+	if feedback.IdClient == "" || feedback.Comment == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idClient and comment are required"))
+		return
+	}
+
+	err := h.store.CreateFeedback(feedback)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusCreated, map[string]string{
+		"message": "Feedback created successfully",
+	})
+}
+
+// GetAllFeedback retrieves all feedback with client information
+func (h *Handler) GetAllFeedback(w http.ResponseWriter, r *http.Request) {
+	feedbacks, err := h.store.GetAllFeedbackWithClientInfo()
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, feedbacks)
 }

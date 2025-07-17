@@ -1174,3 +1174,126 @@ func (s *Store) AssignUserToRole(idUser string, role string) error {
     
     return nil
 }
+
+// CreateNotification creates a new notification
+func (s *Store) CreateNotification(notification types.NotificationCreation) (string, error) {
+    // Generate a unique ID for the new notification
+    newID, err := utils.CreateAnId()
+    if err != nil {
+        return "", fmt.Errorf("error generating ID for notification: %v", err)
+    }
+
+    query := `INSERT INTO notifications (idNotification, idAdmin, titre, type, description) VALUES (?, ?, ?, ?, ?)`
+    _, err = s.db.Exec(query, newID, notification.IdAdmin, notification.Titre, notification.Type, notification.Description)
+    if err != nil {
+        return "", fmt.Errorf("error creating notification: %v", err)
+    }
+
+    return newID, nil
+}
+
+// GetNotificationsByAdmin retrieves all notifications for a specific admin
+func (s *Store) GetNotificationsByAdmin(idAdmin string) ([]types.Notification, error) {
+    query := `SELECT idNotification, idAdmin, titre, type, description FROM notifications WHERE idAdmin = ? ORDER BY idNotification DESC`
+    rows, err := s.db.Query(query, idAdmin)
+    if err != nil {
+        return nil, fmt.Errorf("error getting notifications by admin: %v", err)
+    }
+    defer rows.Close()
+
+    var notifications []types.Notification
+    for rows.Next() {
+        var notification types.Notification
+        err := rows.Scan(
+            &notification.IdNotification,
+            &notification.IdAdmin,
+            &notification.Titre,
+            &notification.Type,
+            &notification.Description,
+        )
+        if err != nil {
+            return nil, fmt.Errorf("error scanning notification row: %v", err)
+        }
+        notifications = append(notifications, notification)
+    }
+
+    return notifications, nil
+}
+
+// GetAllNotifications retrieves all notifications
+func (s *Store) GetAllNotifications() ([]types.Notification, error) {
+    query := `SELECT idNotification, idAdmin, titre, type, description FROM notifications ORDER BY idNotification DESC`
+    rows, err := s.db.Query(query)
+    if err != nil {
+        return nil, fmt.Errorf("error getting all notifications: %v", err)
+    }
+    defer rows.Close()
+
+    var notifications []types.Notification
+    for rows.Next() {
+        var notification types.Notification
+        err := rows.Scan(
+            &notification.IdNotification,
+            &notification.IdAdmin,
+            &notification.Titre,
+            &notification.Type,
+            &notification.Description,
+        )
+        if err != nil {
+            return nil, fmt.Errorf("error scanning notification row: %v", err)
+        }
+        notifications = append(notifications, notification)
+    }
+
+    return notifications, nil
+}
+
+// CreateFeedback creates new feedback from a client
+func (s *Store) CreateFeedback(feedback types.FeedbackCreation) error {
+    query := `INSERT INTO feedback (idClient, comment) VALUES (?, ?)`
+    _, err := s.db.Exec(query, feedback.IdClient, feedback.Comment)
+    if err != nil {
+        return fmt.Errorf("error creating feedback: %v", err)
+    }
+
+    return nil
+}
+
+// GetAllFeedbackWithClientInfo retrieves all feedback with client information
+func (s *Store) GetAllFeedbackWithClientInfo() ([]types.Feedback, error) {
+    query := `
+        SELECT 
+            f.idFeedback, f.idClient, f.comment, f.createdAt,
+            p.firstName, p.lastName, p.email, c.username
+        FROM feedback f
+        JOIN client c ON f.idClient = c.idClient
+        JOIN profile p ON c.idProfile = p.idProfile
+        ORDER BY f.createdAt DESC
+    `
+    rows, err := s.db.Query(query)
+    if err != nil {
+        return nil, fmt.Errorf("error getting all feedback: %v", err)
+    }
+    defer rows.Close()
+
+    var feedbacks []types.Feedback
+    for rows.Next() {
+        var feedback types.Feedback
+        err := rows.Scan(
+            &feedback.IdFeedback,
+            &feedback.IdClient,
+            &feedback.Comment,
+            &feedback.CreatedAt,
+            &feedback.ClientFirstName,
+            &feedback.ClientLastName,
+            &feedback.ClientEmail,
+            &feedback.ClientUsername,
+        )
+        if err != nil {
+            return nil, fmt.Errorf("error scanning feedback row: %v", err)
+        }
+        feedbacks = append(feedbacks, feedback)
+    }
+
+    return feedbacks, nil
+}

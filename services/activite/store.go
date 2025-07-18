@@ -1044,3 +1044,220 @@ func (s *Store) PostRatingActivity(rating types.PostRatingActivity) error {
 	}
 	return nil
 }
+
+func (s *Store) GetAllCampusFacilities() (*types.CampusFacilitiesResponse, error) {
+	activities, err := s.getAllActivitiesWithDetails()
+	if err != nil {
+		return nil, fmt.Errorf("error fetching activities: %v", err)
+	}
+
+	restaurants, err := s.getAllRestaurantsWithDetails()
+	if err != nil {
+		return nil, fmt.Errorf("error fetching restaurants: %v", err)
+	}
+
+	return &types.CampusFacilitiesResponse{
+		Activities:      activities,
+		Restaurants:     restaurants,
+		Total:           len(activities) + len(restaurants),
+		ActivityCount:   len(activities),
+		RestaurantCount: len(restaurants),
+	}, nil
+}
+
+func (s *Store) getAllActivitiesWithDetails() ([]types.CampusFacilityItem, error) {
+	query := `
+		SELECT 
+			a.idActivity,
+			a.nameActivity,
+			a.descriptionActivity,
+			a.imageActivity,
+			a.latitude,
+			a.longitude,
+			a.capacity,
+			a.idTypeActivity,
+			ta.nameTypeActivity,
+			aa.idAdminActivity,
+			CONCAT(p.firstName, ' ', p.lastName) as adminName,
+			p.email as adminEmail,
+			CASE 
+				WHEN aa.idAdminActivity IS NULL THEN 'inactive'
+				ELSE 'active'
+			END as adminStatus
+		FROM activity a
+		LEFT JOIN adminActivity aa ON a.idAdminActivity = aa.idAdminActivity
+		LEFT JOIN profile p ON aa.idProfile = p.idProfile
+		LEFT JOIN typeActivity ta ON a.idTypeActivity = ta.idTypeActivity
+		ORDER BY a.nameActivity
+	`
+
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("error querying activities: %v", err)
+	}
+	defer rows.Close()
+
+	var activities []types.CampusFacilityItem
+	for rows.Next() {
+		var activity types.CampusFacilityItem
+		var description sql.NullString
+		var image sql.NullString
+		var latitude float64
+		var longitude float64
+		var capacity int
+		var categoryID sql.NullString
+		var categoryName sql.NullString
+		var adminID sql.NullString
+		var adminName sql.NullString
+		var adminEmail sql.NullString
+		var adminStatus string
+
+		err := rows.Scan(
+			&activity.ID,
+			&activity.Name,
+			&description,
+			&image,
+			&latitude,
+			&longitude,
+			&capacity,
+			&categoryID,
+			&categoryName,
+			&adminID,
+			&adminName,
+			&adminEmail,
+			&adminStatus,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning activity row: %v", err)
+		}
+
+		activity.Type = "activity"
+		
+		if description.Valid {
+			activity.Description = &description.String
+		}
+		if image.Valid {
+			activity.Image = &image.String
+		}
+		// Always populate coordinates and capacity since they have default values
+		activity.Latitude = &latitude
+		activity.Longitude = &longitude
+		activity.Capacity = &capacity
+		
+		if categoryID.Valid {
+			activity.CategoryID = &categoryID.String
+		}
+		if categoryName.Valid {
+			activity.CategoryName = &categoryName.String
+		}
+		if adminID.Valid {
+			activity.AdminID = &adminID.String
+		}
+		if adminName.Valid {
+			activity.AdminName = &adminName.String
+		}
+		if adminEmail.Valid {
+			activity.AdminEmail = &adminEmail.String
+		}
+		activity.AdminStatus = &adminStatus
+
+		activities = append(activities, activity)
+	}
+
+	return activities, nil
+}
+
+func (s *Store) getAllRestaurantsWithDetails() ([]types.CampusFacilityItem, error) {
+	query := `
+		SELECT 
+			r.idRestaurant,
+			r.name,
+			r.description,
+			r.image,
+			r.latitude,
+			r.longitude,
+			r.capacity,
+			r.location,
+			ar.idAdminRestaurant,
+			CONCAT(p.firstName, ' ', p.lastName) as adminName,
+			p.email as adminEmail,
+			CASE 
+				WHEN ar.idAdminRestaurant IS NULL THEN 'inactive'
+				ELSE 'active'
+			END as adminStatus
+		FROM restaurant r
+		LEFT JOIN adminRestaurant ar ON r.idAdminRestaurant = ar.idAdminRestaurant
+		LEFT JOIN profile p ON ar.idProfile = p.idProfile
+		ORDER BY r.name
+	`
+
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("error querying restaurants: %v", err)
+	}
+	defer rows.Close()
+
+	var restaurants []types.CampusFacilityItem
+	for rows.Next() {
+		var restaurant types.CampusFacilityItem
+		var description sql.NullString
+		var image sql.NullString
+		var latitude float64
+		var longitude float64
+		var capacity int
+		var location sql.NullString
+		var adminID sql.NullString
+		var adminName sql.NullString
+		var adminEmail sql.NullString
+		var adminStatus string
+
+		err := rows.Scan(
+			&restaurant.ID,
+			&restaurant.Name,
+			&description,
+			&image,
+			&latitude,
+			&longitude,
+			&capacity,
+			&location,
+			&adminID,
+			&adminName,
+			&adminEmail,
+			&adminStatus,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning restaurant row: %v", err)
+		}
+
+		restaurant.Type = "restaurant"
+		
+		if description.Valid {
+			restaurant.Description = &description.String
+		}
+		if image.Valid {
+			restaurant.Image = &image.String
+		}
+		// Always populate coordinates and capacity since they have default values
+		restaurant.Latitude = &latitude
+		restaurant.Longitude = &longitude
+		restaurant.Capacity = &capacity
+		
+		if location.Valid {
+			restaurant.Location = &location.String
+		}
+		if adminID.Valid {
+			restaurant.AdminID = &adminID.String
+		}
+		if adminName.Valid {
+			restaurant.AdminName = &adminName.String
+		}
+		if adminEmail.Valid {
+			restaurant.AdminEmail = &adminEmail.String
+		}
+		restaurant.AdminStatus = &adminStatus
+
+		restaurants = append(restaurants, restaurant)
+	}
+
+	return restaurants, nil
+}

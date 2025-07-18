@@ -41,6 +41,7 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/admin/{idAdminActivity}/stats", h.GetActivityStats).Methods("GET")
 	r.HandleFunc("/booking/{idClientActivity}/status", h.UpdateActivityBookingStatus).Methods("PUT")
 	r.HandleFunc("/activity/rating", h.PostReviewActivity).Methods("POST")
+	r.HandleFunc("/campus/facilities", h.GetAllCampusFacilities).Methods("GET")
 }
 
 func (h *Handler) GetAllLocationsWithDistances(w http.ResponseWriter, r *http.Request) {
@@ -417,4 +418,15 @@ func (h *Handler) CreateActivityCategory(w http.ResponseWriter, r *http.Request)
 		"imageURL":       imageURL,
 	}
 	utils.WriteJson(w, http.StatusCreated, response)
+}
+
+func (h *Handler) GetAllCampusFacilities(w http.ResponseWriter, r *http.Request) {
+	facilities, err := h.store.GetAllCampusFacilities()
+	if err != nil {
+		log.Printf("Error fetching campus facilities: %v", err)
+		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("failed to fetch campus facilities"))
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, facilities)
 }

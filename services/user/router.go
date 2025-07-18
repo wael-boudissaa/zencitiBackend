@@ -392,8 +392,8 @@ func (h *Handler) CreateAdmin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		//!NOTE : WHAT HAS BEEN DONE THE ADMIN CAN BE ADMIN FOR MANY RESTAURANTS BUT THE RESTAURANT CAN HAVE ONLY ONE ADMIN
-		if user.IdActivitie != "" {
-			if err := h.store.UpdateRestaurantAdmin(user.IdActivitie, idAdmin); err != nil {
+		if user.IdRestaurant != "" {
+			if err := h.store.UpdateRestaurantAdmin(user.IdRestaurant, idAdmin); err != nil {
 				utils.WriteError(w, http.StatusBadRequest, err)
 				return
 			}
@@ -402,6 +402,13 @@ func (h *Handler) CreateAdmin(w http.ResponseWriter, r *http.Request) {
 		if err := h.store.CreateAdminActivity(idUser, idAdmin); err != nil {
 			utils.WriteError(w, http.StatusBadRequest, err)
 			return
+		}
+		//!NOTE : Assign the admin to the specific activity
+		if user.IdActivity != "" {
+			if err := h.store.UpdateActivityAdmin(user.IdActivity, idAdmin); err != nil {
+				utils.WriteError(w, http.StatusBadRequest, err)
+				return
+			}
 		}
 	} else {
 		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid role"))
@@ -796,8 +803,10 @@ func (h *Handler) GetAllCampusUsers(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) AssignUserToRole(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		IdUser string `json:"idUser"`
-		Role   string `json:"role"` // "adminActivity", "adminRestaurant"
+		IdUser       string `json:"idUser"`
+		Role         string `json:"role"` // "adminActivity", "adminRestaurant"
+		IdActivity   string `json:"idActivity,omitempty"`   // Required for adminActivity
+		IdRestaurant string `json:"idRestaurant,omitempty"` // Required for adminRestaurant
 	}
 	if err := utils.ParseJson(r, &req); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
@@ -811,7 +820,7 @@ func (h *Handler) AssignUserToRole(w http.ResponseWriter, r *http.Request) {
 
 	// Validate role
 	validRoles := map[string]bool{
-		"adminActivity": true,
+		"adminActivity":   true,
 		"adminRestaurant": true,
 	}
 	if !validRoles[req.Role] {
@@ -819,10 +828,24 @@ func (h *Handler) AssignUserToRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.store.AssignUserToRole(req.IdUser, req.Role)
+	// Validate specific requirements
+	if req.Role == "adminActivity" && req.IdActivity == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idActivity is required for adminActivity role"))
+		return
+	}
+	if req.Role == "adminRestaurant" && req.IdRestaurant == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idRestaurant is required for adminRestaurant role"))
+		return
+	}
+
+	err := h.store.AssignUserToRoleWithEntity(req.IdUser, req.Role, req.IdActivity, req.IdRestaurant)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			utils.WriteError(w, http.StatusNotFound, err)
+			return
+		}
+		if strings.Contains(err.Error(), "already assigned") {
+			utils.WriteError(w, http.StatusConflict, err)
 			return
 		}
 		utils.WriteError(w, http.StatusInternalServerError, err)

@@ -40,7 +40,8 @@ type RegisterAdmin struct{
 	Address   string `json:"address"`
 	Type      string `json:"type"`
 	Phone     string `json:"phone_number"`
-    IdActivitie string `json:"idActivitie"`
+    IdActivity string `json:"idActivity,omitempty"`    // For adminActivity
+    IdRestaurant string `json:"idRestaurant,omitempty"` // For adminRestaurant
 }
 
 type ReservationCreation struct {

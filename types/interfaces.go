@@ -34,6 +34,8 @@ type UserStore interface {
 	GetGeneralAdminByEmail(email string) (*User, error)
 	GetAllCampusUsers() ([]CampusUser, error)
 	AssignUserToRole(idUser string, role string) error
+	AssignUserToRoleWithEntity(idUser string, role string, idActivity string, idRestaurant string) error
+	UpdateActivityAdmin(idActivity string, idAdminActivity string) error
 	GetAllClients() ([]ClientInfo, error)
 	UpdateClientLocation(idClient string, longitude, latitude float64) error
 	GetUserById(user User) (*User, error)
@@ -85,6 +87,7 @@ type ActiviteStore interface {
 	GetActivitiesByAdminActivity(idAdminActivity string) ([]Activity, error)
 	UpdateActivityStatus(idClientActivity string, status string) error
 	PostRatingActivity(rating PostRatingActivity) error
+	GetAllCampusFacilities() (*CampusFacilitiesResponse, error)
 }
 
 type RestaurantStore interface {

@@ -195,12 +195,19 @@ func (s *Store) CreateRestaurantWithAdmin(restaurantData types.RestaurantCreatio
 }
 
 func (s *Store) IsClientAdminActivity(idProfile string) (bool, string, error) {
-	query := `SELECT idAdminActivity FROM adminActivity WHERE idProfile = ?`
-	var idAdminActivity string
-	err := s.db.QueryRow(query, idProfile).Scan(&idAdminActivity)
+	// Check if user is actively assigned to an activity
+	// This means they exist in adminActivity table AND are assigned to an activity
+	query := `
+		SELECT aa.idAdminActivity, a.idActivity 
+		FROM adminActivity aa
+		JOIN activity a ON aa.idAdminActivity = a.idAdminActivity
+		WHERE aa.idProfile = ?
+	`
+	var idAdminActivity, idActivity string
+	err := s.db.QueryRow(query, idProfile).Scan(&idAdminActivity, &idActivity)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return false, "", nil // Not an admin
+			return false, "", nil // Not an active admin (either not in adminActivity table or not assigned to any activity)
 		}
 		return false, "", fmt.Errorf("error checking admin activity status: %v", err)
 	}
@@ -714,10 +721,10 @@ func (s *Store) CreateAdminRestaurant(idUser string, idAdminRestaurant string) e
 }
 
 func (s *Store) CreateAdminActivity(idUser string, idAdminActivity string) error {
-	query := `INSERT INTO adminActivity (idRestaurant, idProfile) VALUES (?, ?)`
+	query := `INSERT INTO adminActivity (idAdminActivity, idProfile) VALUES (?, ?)`
 	_, err := s.db.Exec(query, idAdminActivity, idUser)
 	if err != nil {
-		return fmt.Errorf("error creating restaurant admin: %v", err)
+		return fmt.Errorf("error creating activity admin: %v", err)
 	}
 	return nil
 }
@@ -1026,12 +1033,22 @@ func (s *Store) GetAllCampusUsers() ([]types.CampusUser, error) {
             c.idClient, c.username,
             a.idAdmin,
             aa.idAdminActivity,
-            ar.idAdminRestaurant
+            ar.idAdminRestaurant,
+            -- Check if adminActivity is actively assigned to an activity
+            act.idActivity as assignedActivityId,
+            act.nameActivity as assignedActivityName,
+            -- Check if adminRestaurant is actively assigned to a restaurant
+            rest.idRestaurant as assignedRestaurantId,
+            rest.name as assignedRestaurantName
         FROM profile p
         LEFT JOIN client c ON p.idProfile = c.idProfile
         LEFT JOIN admin a ON p.idProfile = a.idProfile
         LEFT JOIN adminActivity aa ON p.idProfile = aa.idProfile
         LEFT JOIN adminRestaurant ar ON p.idProfile = ar.idProfile
+        -- Check if the adminActivity is currently managing an activity
+        LEFT JOIN activity act ON aa.idAdminActivity = act.idAdminActivity
+        -- Check if the adminRestaurant is currently managing a restaurant
+        LEFT JOIN restaurant rest ON ar.idAdminRestaurant = rest.idAdminRestaurant
         ORDER BY p.createdAt DESC
     `
     
@@ -1047,11 +1064,15 @@ func (s *Store) GetAllCampusUsers() ([]types.CampusUser, error) {
         var user types.CampusUser
         var idClient, username, idAdmin, idAdminActivity, idAdminRestaurant sql.NullString
         var address, phoneNumber sql.NullString
+        var assignedActivityId, assignedRestaurantId sql.NullString
+        var assignedActivityName, assignedRestaurantName sql.NullString
         
         err := rows.Scan(
             &user.IdProfile, &user.FirstName, &user.LastName, &user.Email, &user.Type,
             &address, &phoneNumber, &user.CreatedAt,
             &idClient, &username, &idAdmin, &idAdminActivity, &idAdminRestaurant,
+            &assignedActivityId, &assignedActivityName,
+            &assignedRestaurantId, &assignedRestaurantName,
         )
         if err != nil {
             return nil, fmt.Errorf("error scanning user row: %v", err)
@@ -1080,29 +1101,55 @@ func (s *Store) GetAllCampusUsers() ([]types.CampusUser, error) {
             user.IdAdminRestaurant = &idAdminRestaurant.String
         }
         
-        // Determine roles
-        var roles []string
-        roles = append(roles, user.Type) // Primary type
-        
-        if idClient.Valid {
-            if user.Type != "client" {
-                roles = append(roles, "client")
-            }
-        }
+        // Determine admin status and assigned entities
         if idAdminActivity.Valid {
-            if user.Type != "adminActivity" {
-                roles = append(roles, "adminActivity")
+            if assignedActivityId.Valid {
+                user.AdminActivityStatus = "active"
+                user.AssignedActivityId = &assignedActivityId.String
+                if assignedActivityName.Valid {
+                    user.AssignedActivityName = &assignedActivityName.String
+                }
+            } else {
+                user.AdminActivityStatus = "inactive"
             }
         }
+        
         if idAdminRestaurant.Valid {
-            if user.Type != "adminRestaurant" {
-                roles = append(roles, "adminRestaurant")
+            if assignedRestaurantId.Valid {
+                user.AdminRestaurantStatus = "active"
+                user.AssignedRestaurantId = &assignedRestaurantId.String
+                if assignedRestaurantName.Valid {
+                    user.AssignedRestaurantName = &assignedRestaurantName.String
+                }
+            } else {
+                user.AdminRestaurantStatus = "inactive"
             }
         }
-        if idAdmin.Valid {
-            if user.Type != "admin" {
-                roles = append(roles, "admin")
-            }
+        
+        // Determine roles - only include active admin roles
+        var roles []string
+        
+        // Only include primary type if it's not an admin type, or if it's an admin type and the user is active
+        if user.Type == "client" || user.Type == "admin" {
+            roles = append(roles, user.Type)
+        } else if user.Type == "adminActivity" && user.AdminActivityStatus == "active" {
+            roles = append(roles, "adminActivity")
+        } else if user.Type == "adminRestaurant" && user.AdminRestaurantStatus == "active" {
+            roles = append(roles, "adminRestaurant")
+        }
+        
+        // Add additional roles only if they are different from primary type and active
+        if idClient.Valid && user.Type != "client" {
+            roles = append(roles, "client")
+        }
+        if idAdminActivity.Valid && user.AdminActivityStatus == "active" && user.Type != "adminActivity" {
+            roles = append(roles, "adminActivity")
+        }
+        if idAdminRestaurant.Valid && user.AdminRestaurantStatus == "active" && user.Type != "adminRestaurant" {
+            roles = append(roles, "adminRestaurant")
+        }
+        if idAdmin.Valid && user.Type != "admin" {
+            roles = append(roles, "admin")
         }
         
         user.Roles = roles
@@ -1133,40 +1180,78 @@ func (s *Store) AssignUserToRole(idUser string, role string) error {
     // Assign the role based on type
     switch role {
     case "adminActivity":
-        // Check if already assigned
-        var exists bool
-        checkExistsQuery := `SELECT EXISTS(SELECT 1 FROM adminActivity WHERE idProfile = ?)`
-        err = s.db.QueryRow(checkExistsQuery, idUser).Scan(&exists)
+        // Check if user is already ACTIVELY assigned to any activity as admin
+        // This means they exist in adminActivity table AND are assigned to an activity
+        var existingActiveActivityCount int
+        checkActiveQuery := `
+            SELECT COUNT(*) 
+            FROM adminActivity aa
+            JOIN activity a ON aa.idAdminActivity = a.idAdminActivity
+            WHERE aa.idProfile = ?
+        `
+        err = s.db.QueryRow(checkActiveQuery, idUser).Scan(&existingActiveActivityCount)
         if err != nil {
-            return fmt.Errorf("error checking existing adminActivity assignment: %v", err)
+            return fmt.Errorf("error checking existing active adminActivity assignment: %v", err)
         }
-        if exists {
-            return fmt.Errorf("user is already assigned as adminActivity")
+        if existingActiveActivityCount > 0 {
+            return fmt.Errorf("user is already actively assigned as admin to an activity. An admin can only manage one activity")
         }
         
-        insertQuery := `INSERT INTO adminActivity (idAdminActivity, idProfile) VALUES (?, ?)`
-        _, err = s.db.Exec(insertQuery, newRoleId, idUser)
-        if err != nil {
-            return fmt.Errorf("error assigning adminActivity role: %v", err)
+        // Check if user already has an adminActivity record, if not create one
+        var existingAdminActivityId string
+        checkAdminQuery := `SELECT idAdminActivity FROM adminActivity WHERE idProfile = ?`
+        err = s.db.QueryRow(checkAdminQuery, idUser).Scan(&existingAdminActivityId)
+        
+        if err == sql.ErrNoRows {
+            // User doesn't have adminActivity record, create one
+            insertQuery := `INSERT INTO adminActivity (idAdminActivity, idProfile) VALUES (?, ?)`
+            _, err = s.db.Exec(insertQuery, newRoleId, idUser)
+            if err != nil {
+                return fmt.Errorf("error creating adminActivity role: %v", err)
+            }
+        } else if err != nil {
+            return fmt.Errorf("error checking existing adminActivity: %v", err)
         }
+        
+        // Note: This method doesn't assign to specific activity, just creates the admin role
+        // Use AssignUserToRoleWithEntity to assign to specific activity
         
     case "adminRestaurant":
-        // Check if already assigned
-        var exists bool
-        checkExistsQuery := `SELECT EXISTS(SELECT 1 FROM adminRestaurant WHERE idProfile = ?)`
-        err = s.db.QueryRow(checkExistsQuery, idUser).Scan(&exists)
+        // Check if user is already ACTIVELY assigned to any restaurant as admin
+        // This means they exist in adminRestaurant table AND are assigned to a restaurant
+        var existingActiveRestaurantCount int
+        checkActiveQuery := `
+            SELECT COUNT(*) 
+            FROM adminRestaurant ar
+            JOIN restaurant r ON ar.idAdminRestaurant = r.idAdminRestaurant
+            WHERE ar.idProfile = ?
+        `
+        err = s.db.QueryRow(checkActiveQuery, idUser).Scan(&existingActiveRestaurantCount)
         if err != nil {
-            return fmt.Errorf("error checking existing adminRestaurant assignment: %v", err)
+            return fmt.Errorf("error checking existing active adminRestaurant assignment: %v", err)
         }
-        if exists {
-            return fmt.Errorf("user is already assigned as adminRestaurant")
+        if existingActiveRestaurantCount > 0 {
+            return fmt.Errorf("user is already actively assigned as admin to a restaurant. An admin can only manage one restaurant")
         }
         
-        insertQuery := `INSERT INTO adminRestaurant (idAdminRestaurant, idProfile) VALUES (?, ?)`
-        _, err = s.db.Exec(insertQuery, newRoleId, idUser)
-        if err != nil {
-            return fmt.Errorf("error assigning adminRestaurant role: %v", err)
+        // Check if user already has an adminRestaurant record, if not create one
+        var existingAdminRestaurantId string
+        checkAdminQuery := `SELECT idAdminRestaurant FROM adminRestaurant WHERE idProfile = ?`
+        err = s.db.QueryRow(checkAdminQuery, idUser).Scan(&existingAdminRestaurantId)
+        
+        if err == sql.ErrNoRows {
+            // User doesn't have adminRestaurant record, create one
+            insertQuery := `INSERT INTO adminRestaurant (idAdminRestaurant, idProfile) VALUES (?, ?)`
+            _, err = s.db.Exec(insertQuery, newRoleId, idUser)
+            if err != nil {
+                return fmt.Errorf("error creating adminRestaurant role: %v", err)
+            }
+        } else if err != nil {
+            return fmt.Errorf("error checking existing adminRestaurant: %v", err)
         }
+        
+        // Note: This method doesn't assign to specific restaurant, just creates the admin role
+        // Use AssignUserToRoleWithEntity to assign to specific restaurant
         
     default:
         return fmt.Errorf("invalid role: %s", role)
@@ -1296,4 +1381,174 @@ func (s *Store) GetAllFeedbackWithClientInfo() ([]types.Feedback, error) {
     }
 
     return feedbacks, nil
+}
+
+func (s *Store) UpdateActivityAdmin(idActivity string, idAdminActivity string) error {
+	// First check if activity exists
+	var exists bool
+	checkQuery := `SELECT EXISTS(SELECT 1 FROM activity WHERE idActivity = ?)`
+	err := s.db.QueryRow(checkQuery, idActivity).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("error checking activity existence: %v", err)
+	}
+	if !exists {
+		return fmt.Errorf("activity not found")
+	}
+
+	// Update activity with admin (will replace existing admin if any)
+	query := `UPDATE activity SET idAdminActivity = ? WHERE idActivity = ?`
+	result, err := s.db.Exec(query, idAdminActivity, idActivity)
+	if err != nil {
+		return fmt.Errorf("error updating activity admin: %v", err)
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error getting rows affected: %v", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("no activity found to update")
+	}
+
+	return nil
+}
+
+// AssignUserToRoleWithEntity assigns a user to a specific role with entity assignment
+func (s *Store) AssignUserToRoleWithEntity(idUser string, role string, idActivity string, idRestaurant string) error {
+    // First check if user exists
+    var userExists bool
+    checkQuery := `SELECT EXISTS(SELECT 1 FROM profile WHERE idProfile = ?)`
+    err := s.db.QueryRow(checkQuery, idUser).Scan(&userExists)
+    if err != nil {
+        return fmt.Errorf("error checking user existence: %v", err)
+    }
+    if !userExists {
+        return fmt.Errorf("user not found")
+    }
+    
+    // Generate new ID for the role
+    newRoleId, err := utils.CreateAnId()
+    if err != nil {
+        return fmt.Errorf("error generating role ID: %v", err)
+    }
+    
+    // Assign the role based on type
+    switch role {
+    case "adminActivity":
+        // Check if user is already ACTIVELY assigned to any activity as admin
+        // This means they exist in adminActivity table AND are assigned to an activity
+        var existingActiveActivityCount int
+        checkActiveQuery := `
+            SELECT COUNT(*) 
+            FROM adminActivity aa
+            JOIN activity a ON aa.idAdminActivity = a.idAdminActivity
+            WHERE aa.idProfile = ?
+        `
+        err = s.db.QueryRow(checkActiveQuery, idUser).Scan(&existingActiveActivityCount)
+        if err != nil {
+            return fmt.Errorf("error checking existing active adminActivity assignment: %v", err)
+        }
+        if existingActiveActivityCount > 0 {
+            return fmt.Errorf("user is already actively assigned as admin to an activity. An admin can only manage one activity")
+        }
+        
+        // Check if the activity exists
+        var activityExists bool
+        checkActivityQuery := `SELECT EXISTS(SELECT 1 FROM activity WHERE idActivity = ?)`
+        err = s.db.QueryRow(checkActivityQuery, idActivity).Scan(&activityExists)
+        if err != nil {
+            return fmt.Errorf("error checking activity existence: %v", err)
+        }
+        if !activityExists {
+            return fmt.Errorf("activity not found")
+        }
+        
+        // Check if user already has an adminActivity record, if not create one
+        var existingAdminActivityId string
+        checkAdminQuery := `SELECT idAdminActivity FROM adminActivity WHERE idProfile = ?`
+        err = s.db.QueryRow(checkAdminQuery, idUser).Scan(&existingAdminActivityId)
+        
+        if err == sql.ErrNoRows {
+            // User doesn't have adminActivity record, create one
+            insertQuery := `INSERT INTO adminActivity (idAdminActivity, idProfile) VALUES (?, ?)`
+            _, err = s.db.Exec(insertQuery, newRoleId, idUser)
+            if err != nil {
+                return fmt.Errorf("error creating adminActivity role: %v", err)
+            }
+            existingAdminActivityId = newRoleId
+        } else if err != nil {
+            return fmt.Errorf("error checking existing adminActivity: %v", err)
+        }
+        
+        // Update activity with the admin (this will replace existing admin if any)
+        err = s.UpdateActivityAdmin(idActivity, existingAdminActivityId)
+        if err != nil {
+            // If we created a new admin record, rollback
+            if existingAdminActivityId == newRoleId {
+                s.db.Exec(`DELETE FROM adminActivity WHERE idAdminActivity = ?`, newRoleId)
+            }
+            return fmt.Errorf("error assigning admin to activity: %v", err)
+        }
+        
+    case "adminRestaurant":
+        // Check if user is already ACTIVELY assigned to any restaurant as admin
+        // This means they exist in adminRestaurant table AND are assigned to a restaurant
+        var existingActiveRestaurantCount int
+        checkActiveQuery := `
+            SELECT COUNT(*) 
+            FROM adminRestaurant ar
+            JOIN restaurant r ON ar.idAdminRestaurant = r.idAdminRestaurant
+            WHERE ar.idProfile = ?
+        `
+        err = s.db.QueryRow(checkActiveQuery, idUser).Scan(&existingActiveRestaurantCount)
+        if err != nil {
+            return fmt.Errorf("error checking existing active adminRestaurant assignment: %v", err)
+        }
+        if existingActiveRestaurantCount > 0 {
+            return fmt.Errorf("user is already actively assigned as admin to a restaurant. An admin can only manage one restaurant")
+        }
+        
+        // Check if the restaurant exists
+        var restaurantExists bool
+        checkRestaurantQuery := `SELECT EXISTS(SELECT 1 FROM restaurant WHERE idRestaurant = ?)`
+        err = s.db.QueryRow(checkRestaurantQuery, idRestaurant).Scan(&restaurantExists)
+        if err != nil {
+            return fmt.Errorf("error checking restaurant existence: %v", err)
+        }
+        if !restaurantExists {
+            return fmt.Errorf("restaurant not found")
+        }
+        
+        // Check if user already has an adminRestaurant record, if not create one
+        var existingAdminRestaurantId string
+        checkAdminQuery := `SELECT idAdminRestaurant FROM adminRestaurant WHERE idProfile = ?`
+        err = s.db.QueryRow(checkAdminQuery, idUser).Scan(&existingAdminRestaurantId)
+        
+        if err == sql.ErrNoRows {
+            // User doesn't have adminRestaurant record, create one
+            insertQuery := `INSERT INTO adminRestaurant (idAdminRestaurant, idProfile) VALUES (?, ?)`
+            _, err = s.db.Exec(insertQuery, newRoleId, idUser)
+            if err != nil {
+                return fmt.Errorf("error creating adminRestaurant role: %v", err)
+            }
+            existingAdminRestaurantId = newRoleId
+        } else if err != nil {
+            return fmt.Errorf("error checking existing adminRestaurant: %v", err)
+        }
+        
+        // Update restaurant with the admin (this will replace existing admin if any)
+        err = s.UpdateRestaurantAdmin(idRestaurant, existingAdminRestaurantId)
+        if err != nil {
+            // If we created a new admin record, rollback
+            if existingAdminRestaurantId == newRoleId {
+                s.db.Exec(`DELETE FROM adminRestaurant WHERE idAdminRestaurant = ?`, newRoleId)
+            }
+            return fmt.Errorf("error assigning admin to restaurant: %v", err)
+        }
+        
+    default:
+        return fmt.Errorf("invalid role: %s", role)
+    }
+    
+    return nil
 }

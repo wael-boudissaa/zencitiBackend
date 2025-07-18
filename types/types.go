@@ -190,6 +190,12 @@ type CampusUser struct {
 	IdAdmin       *string  `json:"idAdmin,omitempty"`
 	IdAdminActivity *string `json:"idAdminActivity,omitempty"`
 	IdAdminRestaurant *string `json:"idAdminRestaurant,omitempty"`
+	AdminActivityStatus string `json:"adminActivityStatus,omitempty"` // "active", "inactive", or empty
+	AdminRestaurantStatus string `json:"adminRestaurantStatus,omitempty"` // "active", "inactive", or empty
+	AssignedActivityId *string `json:"assignedActivityId,omitempty"`
+	AssignedActivityName *string `json:"assignedActivityName,omitempty"`
+	AssignedRestaurantId *string `json:"assignedRestaurantId,omitempty"`
+	AssignedRestaurantName *string `json:"assignedRestaurantName,omitempty"`
 }
 type LocationItemWithDistance struct {
 	ID                string  `json:"id"`
@@ -819,4 +825,30 @@ type FeedBack struct {
 	IDFeedBack string `json:"idFeedback"`
 	Comment    string `json:"comment"`
 	CreatedAt  string `json:"createdAt"`
+}
+
+type CampusFacilityItem struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Description *string  `json:"description"`
+	Type        string   `json:"type"` // "activity" or "restaurant"
+	Image       *string  `json:"image"`
+	Latitude    *float64 `json:"latitude"`
+	Longitude   *float64 `json:"longitude"`
+	Capacity    *int     `json:"capacity"`
+	Location    *string  `json:"location,omitempty"`    // Only for restaurants
+	AdminID     *string  `json:"adminId,omitempty"`     // Admin managing this facility
+	AdminName   *string  `json:"adminName,omitempty"`   // Admin's full name
+	AdminEmail  *string  `json:"adminEmail,omitempty"`  // Admin's email
+	AdminStatus *string  `json:"adminStatus,omitempty"` // "active" or "inactive"
+	CategoryID  *string  `json:"categoryId,omitempty"`  // Only for activities
+	CategoryName *string `json:"categoryName,omitempty"` // Only for activities
+}
+
+type CampusFacilitiesResponse struct {
+	Activities  []CampusFacilityItem `json:"activities"`
+	Restaurants []CampusFacilityItem `json:"restaurants"`
+	Total       int                  `json:"total"`
+	ActivityCount int                `json:"activityCount"`
+	RestaurantCount int              `json:"restaurantCount"`
 }

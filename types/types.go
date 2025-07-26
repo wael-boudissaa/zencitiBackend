@@ -852,3 +852,26 @@ type CampusFacilitiesResponse struct {
 	ActivityCount int                `json:"activityCount"`
 	RestaurantCount int              `json:"restaurantCount"`
 }
+
+type FollowingFollowerInfo struct {
+	ClientId  string `json:"clientId"`
+	Username  string `json:"username"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+}
+
+type FollowListResponse struct {
+	Following []FollowingFollowerInfo `json:"following"`
+	Followers []FollowingFollowerInfo `json:"followers"`
+}
+
+type AvailabilityCheckRequest struct {
+	Email    string `json:"email,omitempty"`
+	Username string `json:"username,omitempty"`
+}
+
+type AvailabilityCheckResponse struct {
+	EmailExists    bool `json:"emailExists"`
+	UsernameExists bool `json:"usernameExists"`
+	Available      bool `json:"available"`
+}

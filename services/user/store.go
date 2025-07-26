@@ -1552,3 +1552,145 @@ func (s *Store) AssignUserToRoleWithEntity(idUser string, role string, idActivit
     
     return nil
 }
+
+func (s *Store) GetClientFollowersAndFollowing(idClient string) (*types.FollowListResponse, error) {
+    response := &types.FollowListResponse{
+        Following: []types.FollowingFollowerInfo{},
+        Followers: []types.FollowingFollowerInfo{},
+    }
+
+    // Get following (users this client follows)
+    followingQuery := `
+        SELECT 
+            c.idClient,
+            c.username,
+            p.firstName,
+            p.lastName
+        FROM friendship f
+        JOIN client c ON f.idClient2 = c.idClient
+        JOIN profile p ON c.idProfile = p.idProfile
+        WHERE f.idClient1 = ? AND f.status = 'accepted'
+        ORDER BY p.firstName, p.lastName
+    `
+    
+    rows, err := s.db.Query(followingQuery, idClient)
+    if err != nil {
+        return nil, fmt.Errorf("error retrieving following list: %v", err)
+    }
+    defer rows.Close()
+
+    for rows.Next() {
+        var followingInfo types.FollowingFollowerInfo
+        err := rows.Scan(
+            &followingInfo.ClientId,
+            &followingInfo.Username,
+            &followingInfo.FirstName,
+            &followingInfo.LastName,
+        )
+        if err != nil {
+            return nil, fmt.Errorf("error scanning following row: %v", err)
+        }
+        response.Following = append(response.Following, followingInfo)
+    }
+    if err = rows.Err(); err != nil {
+        return nil, fmt.Errorf("error iterating following rows: %v", err)
+    }
+
+    // Get followers (users that follow this client)
+    followersQuery := `
+        SELECT 
+            c.idClient,
+            c.username,
+            p.firstName,
+            p.lastName
+        FROM friendship f
+        JOIN client c ON f.idClient1 = c.idClient
+        JOIN profile p ON c.idProfile = p.idProfile
+        WHERE f.idClient2 = ? AND f.status = 'accepted'
+        ORDER BY p.firstName, p.lastName
+    `
+    
+    rows, err = s.db.Query(followersQuery, idClient)
+    if err != nil {
+        return nil, fmt.Errorf("error retrieving followers list: %v", err)
+    }
+    defer rows.Close()
+
+    for rows.Next() {
+        var followerInfo types.FollowingFollowerInfo
+        err := rows.Scan(
+            &followerInfo.ClientId,
+            &followerInfo.Username,
+            &followerInfo.FirstName,
+            &followerInfo.LastName,
+        )
+        if err != nil {
+            return nil, fmt.Errorf("error scanning follower row: %v", err)
+        }
+        response.Followers = append(response.Followers, followerInfo)
+    }
+    if err = rows.Err(); err != nil {
+        return nil, fmt.Errorf("error iterating follower rows: %v", err)
+    }
+
+    return response, nil
+}
+
+func (s *Store) CheckEmailExists(email string) (bool, error) {
+    if email == "" {
+        return false, nil
+    }
+    
+    query := `SELECT EXISTS(SELECT 1 FROM profile WHERE email = ?)`
+    var exists bool
+    err := s.db.QueryRow(query, email).Scan(&exists)
+    if err != nil {
+        return false, fmt.Errorf("error checking email existence: %v", err)
+    }
+    return exists, nil
+}
+
+func (s *Store) CheckUsernameExists(username string) (bool, error) {
+    if username == "" {
+        return false, nil
+    }
+    
+    query := `SELECT EXISTS(SELECT 1 FROM client WHERE username = ?)`
+    var exists bool
+    err := s.db.QueryRow(query, username).Scan(&exists)
+    if err != nil {
+        return false, fmt.Errorf("error checking username existence: %v", err)
+    }
+    return exists, nil
+}
+
+func (s *Store) CheckEmailAndUsernameAvailability(email, username string) (*types.AvailabilityCheckResponse, error) {
+    response := &types.AvailabilityCheckResponse{
+        EmailExists:    false,
+        UsernameExists: false,
+        Available:      true,
+    }
+    
+    // Check email if provided
+    if email != "" {
+        emailExists, err := s.CheckEmailExists(email)
+        if err != nil {
+            return nil, err
+        }
+        response.EmailExists = emailExists
+    }
+    
+    // Check username if provided
+    if username != "" {
+        usernameExists, err := s.CheckUsernameExists(username)
+        if err != nil {
+            return nil, err
+        }
+        response.UsernameExists = usernameExists
+    }
+    
+    // Set availability - true only if neither exists (when provided)
+    response.Available = !response.EmailExists && !response.UsernameExists
+    
+    return response, nil
+}

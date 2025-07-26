@@ -44,6 +44,8 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/clientinformation/{idClient}", h.ClientInformation).Methods("GET")
 	router.HandleFunc("/usernameinformation/{username}", h.ClientInformationUsername).Methods("GET")
 	router.HandleFunc("/username", h.GetUsername).Methods("GET")
+	router.HandleFunc("/followlist/{idClient}", h.GetFollowList).Methods("GET")
+	router.HandleFunc("/check-availability", h.CheckAvailability).Methods("POST")
 	router.HandleFunc("/admin/assignactivity", h.AssignClientToAdminActivity).Methods("POST")
 	router.HandleFunc("/admin/clients", h.GetAllClients).Methods("GET")
 	router.HandleFunc("/admin/campus/users", h.GetAllCampusUsers).Methods("GET")
@@ -945,4 +947,43 @@ func (h *Handler) GetAllFeedback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.WriteJson(w, http.StatusOK, feedbacks)
+}
+
+func (h *Handler) GetFollowList(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	idClient, ok := vars["idClient"]
+	if !ok {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idClient is required"))
+		return
+	}
+
+	followList, err := h.store.GetClientFollowersAndFollowing(idClient)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, followList)
+}
+
+func (h *Handler) CheckAvailability(w http.ResponseWriter, r *http.Request) {
+	var request types.AvailabilityCheckRequest
+	if err := utils.ParseJson(r, &request); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	// Validate that at least one field is provided
+	if request.Email == "" && request.Username == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("at least one of email or username must be provided"))
+		return
+	}
+
+	availability, err := h.store.CheckEmailAndUsernameAvailability(request.Email, request.Username)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, availability)
 }

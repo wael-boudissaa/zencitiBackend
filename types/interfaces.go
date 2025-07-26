@@ -63,6 +63,14 @@ type UserStore interface {
 	// Feedback methods
 	CreateFeedback(feedback FeedbackCreation) error
 	GetAllFeedbackWithClientInfo() ([]Feedback, error)
+	
+	// Following/Followers methods
+	GetClientFollowersAndFollowing(idClient string) (*FollowListResponse, error)
+	
+	// Availability check methods
+	CheckEmailExists(email string) (bool, error)
+	CheckUsernameExists(username string) (bool, error)
+	CheckEmailAndUsernameAvailability(email, username string) (*AvailabilityCheckResponse, error)
 
 	UpdateRestaurantAdmin(idRestaurant string, idAdminRestaurant string) error
 	CreateAdminActivity(idUser string, idAdminRestaurant string) error

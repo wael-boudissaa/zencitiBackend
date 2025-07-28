@@ -422,10 +422,11 @@ type Feedback struct {
 	Comment    string `json:"comment"`
 	CreatedAt  string `json:"createdAt"`
 	// Client information
-	ClientFirstName string `json:"clientFirstName,omitempty"`
-	ClientLastName  string `json:"clientLastName,omitempty"`
-	ClientUsername  string `json:"clientUsername,omitempty"`
-	ClientEmail     string `json:"clientEmail,omitempty"`
+	ClientFirstName   string `json:"clientFirstName,omitempty"`
+	ClientLastName    string `json:"clientLastName,omitempty"`
+	ClientUsername    string `json:"clientUsername,omitempty"`
+	ClientEmail       string `json:"clientEmail,omitempty"`
+	ClientPhoneNumber string `json:"clientPhoneNumber,omitempty"`
 }
 
 // FeedbackCreation represents the data needed to create new feedback

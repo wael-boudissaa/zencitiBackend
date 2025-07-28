@@ -584,6 +584,66 @@ func (s *Store) AcceptRequestFriend(idFriendship string) error {
 	return nil
 }
 
+func (s *Store) DeleteFriendRequestFromDB(idFriendship string) error {
+	query := `DELETE FROM friendship WHERE idFriendship = ?`
+	result, err := s.db.Exec(query, idFriendship)
+	if err != nil {
+		return fmt.Errorf("error deleting friend request: %v", err)
+	}
+	
+	// Check if any rows were affected
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error checking affected rows: %v", err)
+	}
+	
+	if rowsAffected == 0 {
+		return fmt.Errorf("friend request not found")
+	}
+	
+	return nil
+}
+
+func (s *Store) RemoveFromFollowing(currentUserId string, targetUserId string) error {
+	query := `DELETE FROM friendship WHERE idClient1 = ? AND idClient2 = ? AND status = 'accepted'`
+	result, err := s.db.Exec(query, currentUserId, targetUserId)
+	if err != nil {
+		return fmt.Errorf("error removing from following: %v", err)
+	}
+	
+	// Check if any rows were affected
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error checking affected rows: %v", err)
+	}
+	
+	if rowsAffected == 0 {
+		return fmt.Errorf("following relationship not found")
+	}
+	
+	return nil
+}
+
+func (s *Store) RemoveFollower(currentUserId string, targetUserId string) error {
+	query := `DELETE FROM friendship WHERE idClient1 = ? AND idClient2 = ? AND status = 'accepted'`
+	result, err := s.db.Exec(query, targetUserId, currentUserId)
+	if err != nil {
+		return fmt.Errorf("error removing follower: %v", err)
+	}
+	
+	// Check if any rows were affected
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error checking affected rows: %v", err)
+	}
+	
+	if rowsAffected == 0 {
+		return fmt.Errorf("follower relationship not found")
+	}
+	
+	return nil
+}
+
 func (s *Store) CountFollowing(idClient string) (int, error) {
 	query := `SELECT COUNT(*) FROM friendship
 WHERE idClient1 = ? AND status = 'accepted';`
@@ -1349,7 +1409,7 @@ func (s *Store) GetAllFeedbackWithClientInfo() ([]types.Feedback, error) {
     query := `
         SELECT 
             f.idFeedback, f.idClient, f.comment, f.createdAt,
-            p.firstName, p.lastName, p.email, c.username
+            p.firstName, p.lastName, p.email, p.phoneNumber, c.username
         FROM feedback f
         JOIN client c ON f.idClient = c.idClient
         JOIN profile p ON c.idProfile = p.idProfile
@@ -1372,6 +1432,7 @@ func (s *Store) GetAllFeedbackWithClientInfo() ([]types.Feedback, error) {
             &feedback.ClientFirstName,
             &feedback.ClientLastName,
             &feedback.ClientEmail,
+            &feedback.ClientPhoneNumber,
             &feedback.ClientUsername,
         )
         if err != nil {
@@ -1691,6 +1752,45 @@ func (s *Store) CheckEmailAndUsernameAvailability(email, username string) (*type
     
     // Set availability - true only if neither exists (when provided)
     response.Available = !response.EmailExists && !response.UsernameExists
+    
+    return response, nil
+}
+
+func (s *Store) CheckFriendRequestStatus(fromUsername, toUsername string) (*types.FriendRequestStatusResponse, error) {
+    response := &types.FriendRequestStatusResponse{
+        RequestExists: false,
+        Status:        "none",
+        IdFriendship:  "",
+    }
+    
+    // Validate input
+    if fromUsername == "" || toUsername == "" {
+        return response, nil
+    }
+    
+    // Query to check if friendship request exists between the two users
+    query := `
+        SELECT f.idFriendship, f.status 
+        FROM friendship f
+        JOIN client c1 ON f.idClient1 = c1.idClient
+        JOIN client c2 ON f.idClient2 = c2.idClient
+        WHERE c1.username = ? AND c2.username = ?
+    `
+    
+    var idFriendship, status string
+    err := s.db.QueryRow(query, fromUsername, toUsername).Scan(&idFriendship, &status)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            // No friendship request found - return default response
+            return response, nil
+        }
+        return nil, fmt.Errorf("error checking friend request status: %v", err)
+    }
+    
+    // Friendship request exists
+    response.RequestExists = true
+    response.Status = status
+    response.IdFriendship = idFriendship
     
     return response, nil
 }

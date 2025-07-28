@@ -109,6 +109,17 @@ type AcceptFriendRequest struct {
     IdFriendship string `json:"idFriendship"`
 }
 
+type FriendRequestStatusRequest struct {
+	FromUsername string `json:"fromUsername"`
+	ToUsername   string `json:"toUsername"`
+}
+
+type FriendRequestStatusResponse struct {
+	RequestExists bool   `json:"requestExists"`
+	Status        string `json:"status"`
+	IdFriendship  string `json:"idFriendship,omitempty"`
+}
+
 
 type FriendsReviewsRestaruant struct{
     IdClient string `json:"idClient"`

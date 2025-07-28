@@ -23,6 +23,9 @@ type FeedBackStore interface {
 	CreateFeedBack(idFeedBack, idCustomer, comment string) error
 }
 type UserStore interface {
+	DeleteFriendRequestFromDB(idFriendship string) error
+    RemoveFromFollowing(currentUserId string, targetUserId string) error
+    RemoveFollower(currentUserId string, targetUserId string) error
 	VerifyAdminRestaurantAssignment(idAdminRestaurant string) (bool, string, error)
 	IsClientAdminActivity(idProfile string) (bool, string, error)
 	GetAdminLocation(idAdmin string) (*AdminLocation, error)
@@ -54,23 +57,26 @@ type UserStore interface {
 	GetUserStats() (*UserStats, error)
 	GetMonthlyUserStats() ([]MonthlyUserStats, error)
 	CreateActivityWithAdmin(activityData ActivityCreationWithAdmin, profileData ActivityAdminCreation) (string, string, error)
-	
+
 	// Notification methods
 	CreateNotification(notification NotificationCreation) (string, error)
 	GetNotificationsByAdmin(idAdmin string) ([]Notification, error)
 	GetAllNotifications() ([]Notification, error)
-	
+
 	// Feedback methods
 	CreateFeedback(feedback FeedbackCreation) error
 	GetAllFeedbackWithClientInfo() ([]Feedback, error)
-	
+
 	// Following/Followers methods
 	GetClientFollowersAndFollowing(idClient string) (*FollowListResponse, error)
-	
+
 	// Availability check methods
 	CheckEmailExists(email string) (bool, error)
 	CheckUsernameExists(username string) (bool, error)
 	CheckEmailAndUsernameAvailability(email, username string) (*AvailabilityCheckResponse, error)
+
+	// Friend request status check methods
+	CheckFriendRequestStatus(fromUsername, toUsername string) (*FriendRequestStatusResponse, error)
 
 	UpdateRestaurantAdmin(idRestaurant string, idAdminRestaurant string) error
 	CreateAdminActivity(idUser string, idAdminRestaurant string) error

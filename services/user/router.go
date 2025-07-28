@@ -39,6 +39,9 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/login", h.loginUser).Methods("POST")
 	router.HandleFunc("/getfriendship/{idClient}", h.GetFriendshipClient).Methods("GET")
 	router.HandleFunc("/acceptfriendship", h.AcceptFrienship).Methods("POST")
+	router.HandleFunc("/deletefriendship", h.DeleteFriendship).Methods("POST")
+	router.HandleFunc("/removefollowing", h.RemoveFromFollowing).Methods("POST")
+	router.HandleFunc("/removefollower", h.RemoveFollower).Methods("POST")
 	router.HandleFunc("/signup", h.signUpUser).Methods("POST")
 	router.HandleFunc("/sendrequest", h.SendRequestFriend).Methods("POST")
 	router.HandleFunc("/clientinformation/{idClient}", h.ClientInformation).Methods("GET")
@@ -46,6 +49,7 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/username", h.GetUsername).Methods("GET")
 	router.HandleFunc("/followlist/{idClient}", h.GetFollowList).Methods("GET")
 	router.HandleFunc("/check-availability", h.CheckAvailability).Methods("POST")
+	router.HandleFunc("/check-friend-request-status", h.CheckFriendRequestStatus).Methods("POST")
 	router.HandleFunc("/admin/assignactivity", h.AssignClientToAdminActivity).Methods("POST")
 	router.HandleFunc("/admin/clients", h.GetAllClients).Methods("GET")
 	router.HandleFunc("/admin/campus/users", h.GetAllCampusUsers).Methods("GET")
@@ -619,6 +623,75 @@ func (h *Handler) AcceptFrienship(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJson(w, http.StatusOK, map[string]string{"message": "Friend Accepted successfully"})
 }
 
+func (h *Handler) DeleteFriendship(w http.ResponseWriter, r *http.Request) {
+	var request types.AcceptFriendRequest // Reusing the same type since it has idFriendship field
+	if err := utils.ParseJson(r, &request); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	// Validate that idFriendship is provided
+	if request.IdFriendship == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idFriendship is required"))
+		return
+	}
+
+	if err := h.store.DeleteFriendRequestFromDB(request.IdFriendship); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, map[string]string{"message": "Friend request deleted successfully"})
+}
+
+func (h *Handler) RemoveFromFollowing(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		CurrentUserId string `json:"currentUserId"`
+		TargetUserId  string `json:"targetUserId"`
+	}
+	if err := utils.ParseJson(r, &request); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	// Validate required fields
+	if request.CurrentUserId == "" || request.TargetUserId == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("currentUserId and targetUserId are required"))
+		return
+	}
+
+	if err := h.store.RemoveFromFollowing(request.CurrentUserId, request.TargetUserId); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, map[string]string{"message": "Removed from following successfully"})
+}
+
+func (h *Handler) RemoveFollower(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		CurrentUserId string `json:"currentUserId"`
+		TargetUserId  string `json:"targetUserId"`
+	}
+	if err := utils.ParseJson(r, &request); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	// Validate required fields
+	if request.CurrentUserId == "" || request.TargetUserId == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("currentUserId and targetUserId are required"))
+		return
+	}
+
+	if err := h.store.RemoveFollower(request.CurrentUserId, request.TargetUserId); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, map[string]string{"message": "Follower removed successfully"})
+}
+
 func (h *Handler) GetFriendshipClient(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	idClient, ok := vars["idClient"]
@@ -986,4 +1059,32 @@ func (h *Handler) CheckAvailability(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.WriteJson(w, http.StatusOK, availability)
+}
+
+func (h *Handler) CheckFriendRequestStatus(w http.ResponseWriter, r *http.Request) {
+	var request types.FriendRequestStatusRequest
+	if err := utils.ParseJson(r, &request); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	// Validate that both usernames are provided
+	if request.FromUsername == "" || request.ToUsername == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("both fromUsername and toUsername are required"))
+		return
+	}
+
+	// Check if trying to send request to themselves
+	if request.FromUsername == request.ToUsername {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("cannot send friend request to yourself"))
+		return
+	}
+
+	status, err := h.store.CheckFriendRequestStatus(request.FromUsername, request.ToUsername)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, status)
 }

@@ -758,8 +758,39 @@ func (s *Store) GetActivitiesByAdminActivity(idAdminActivity string) ([]types.Ac
 }
 
 func (s *Store) UpdateActivityStatus(idClientActivity string, status string) error {
-	query := `UPDATE clientActivity SET status = ? WHERE idClientActivity = ?`
-	result, err := s.db.Exec(query, status, idClientActivity)
+	// First, get current activity status and time
+	var currentStatus string
+	var timeActivity time.Time
+	query := `SELECT status, timeActivity FROM clientActivity WHERE idClientActivity = ?`
+	err := s.db.QueryRow(query, idClientActivity).Scan(&currentStatus, &timeActivity)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("no activity booking found with ID %s", idClientActivity)
+		}
+		return fmt.Errorf("error fetching activity: %v", err)
+	}
+
+	// Validate status transition
+	if !isValidActivityStatusTransition(currentStatus, status) {
+		return fmt.Errorf("invalid status transition from %s to %s", currentStatus, status)
+	}
+
+	// Validate time window (2 hours before or after activity time)
+	now := time.Now()
+	timeDiff := timeActivity.Sub(now)
+	absTimeDiff := timeDiff
+	if absTimeDiff < 0 {
+		absTimeDiff = -absTimeDiff
+	}
+
+	twoHours := 2 * time.Hour
+	if absTimeDiff > twoHours {
+		return fmt.Errorf("status can only be changed within 2 hours before or after the activity time")
+	}
+
+	// If validation passes, update the status
+	updateQuery := `UPDATE clientActivity SET status = ? WHERE idClientActivity = ?`
+	result, err := s.db.Exec(updateQuery, status, idClientActivity)
 	if err != nil {
 		return fmt.Errorf("error updating activity status: %v", err)
 	}
@@ -774,6 +805,26 @@ func (s *Store) UpdateActivityStatus(idClientActivity string, status string) err
 	}
 
 	return nil
+}
+
+// Helper function to validate activity status transitions
+func isValidActivityStatusTransition(currentStatus, newStatus string) bool {
+	// Valid transitions for activities (pending/cancelled/completed):
+	// pending → cancelled ✅
+	// pending → completed ✅
+	// cancelled → any ❌ (blocked)
+	// completed → any ❌ (blocked)
+
+	switch currentStatus {
+	case "pending":
+		return newStatus == "cancelled" || newStatus == "completed"
+	case "cancelled":
+		return false // cancelled cannot change to any other status
+	case "completed":
+		return false // completed cannot change to any other status
+	default:
+		return false
+	}
 }
 
 func (s *Store) GetActivityStatsAdmin(idAdminActivity string) (*types.ActivityStats, error) {

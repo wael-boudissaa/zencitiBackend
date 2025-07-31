@@ -19,20 +19,21 @@ type store struct {
 func NewStore(db *sql.DB) *store {
 	return &store{db: db}
 }
+
 // Add to services/restaurant/store.go
 
 func (s *store) GetUniversalReservationDetails(reservationId string, reservationType string) (*types.UniversalReservationDetails, error) {
-    if reservationType == "restaurant" {
-        return s.getRestaurantReservationDetails(reservationId)
-    } else if reservationType == "activity" {
-        return s.getActivityReservationDetails(reservationId)
-    } else {
-        return nil, fmt.Errorf("invalid reservation type. Must be 'restaurant' or 'activity'")
-    }
+	if reservationType == "restaurant" {
+		return s.getRestaurantReservationDetails(reservationId)
+	} else if reservationType == "activity" {
+		return s.getActivityReservationDetails(reservationId)
+	} else {
+		return nil, fmt.Errorf("invalid reservation type. Must be 'restaurant' or 'activity'")
+	}
 }
 
 func (s *store) getRestaurantReservationDetails(reservationId string) (*types.UniversalReservationDetails, error) {
-    query := `
+	query := `
         SELECT 
             r.idReservation,
             r.idClient,
@@ -73,65 +74,64 @@ func (s *store) getRestaurantReservationDetails(reservationId string) (*types.Un
         JOIN profile adminProfile ON ar.idProfile = adminProfile.idProfile
         WHERE r.idReservation = ?
     `
-    
-    row := s.db.QueryRow(query, reservationId)
-    
-    var details types.UniversalReservationDetails
-    var restaurantInfo types.RestaurantReservationInfo
-    var tableID sql.NullString
-    
-    err := row.Scan(
-        &details.ReservationID,
-        &details.ClientID,
-        &details.Status,
-        &details.CreatedAt,
-        &details.ReservationTime,
-        &restaurantInfo.NumberOfPeople,
-        &tableID,
-        
-        // Client info
-        &details.ClientFirstName,
-        &details.ClientLastName,
-        &details.ClientEmail,
-        &details.ClientPhone,
-        &details.ClientUsername,
-        
-        // Restaurant info
-        &restaurantInfo.RestaurantID,
-        &restaurantInfo.RestaurantName,
-        &restaurantInfo.RestaurantImage,
-        &restaurantInfo.RestaurantLocation,
-        &restaurantInfo.Description,
-        &restaurantInfo.Capacity,
-        &restaurantInfo.Longitude,
-        &restaurantInfo.Latitude,
-        
-        // Admin info
-        &restaurantInfo.AdminFirstName,
-        &restaurantInfo.AdminLastName,
-        &restaurantInfo.AdminEmail,
-        &restaurantInfo.AdminPhone,
-    )
-    
-    if err != nil {
-        if err == sql.ErrNoRows {
-            return nil, fmt.Errorf("restaurant reservation with ID %s not found", reservationId)
-        }
-        return nil, fmt.Errorf("error retrieving restaurant reservation details: %v", err)
-    }
-    
-    if tableID.Valid {
-        restaurantInfo.TableID = tableID.String
-    }
-    
-    details.ReservationType = "restaurant"
-    details.RestaurantInfo = &restaurantInfo
-    
-    return &details, nil
+
+	row := s.db.QueryRow(query, reservationId)
+
+	var details types.UniversalReservationDetails
+	var restaurantInfo types.RestaurantReservationInfo
+	var tableID sql.NullString
+
+	err := row.Scan(
+		&details.ReservationID,
+		&details.ClientID,
+		&details.Status,
+		&details.CreatedAt,
+		&details.ReservationTime,
+		&restaurantInfo.NumberOfPeople,
+		&tableID,
+
+		// Client info
+		&details.ClientFirstName,
+		&details.ClientLastName,
+		&details.ClientEmail,
+		&details.ClientPhone,
+		&details.ClientUsername,
+
+		// Restaurant info
+		&restaurantInfo.RestaurantID,
+		&restaurantInfo.RestaurantName,
+		&restaurantInfo.RestaurantImage,
+		&restaurantInfo.RestaurantLocation,
+		&restaurantInfo.Description,
+		&restaurantInfo.Capacity,
+		&restaurantInfo.Longitude,
+		&restaurantInfo.Latitude,
+
+		// Admin info
+		&restaurantInfo.AdminFirstName,
+		&restaurantInfo.AdminLastName,
+		&restaurantInfo.AdminEmail,
+		&restaurantInfo.AdminPhone,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("restaurant reservation with ID %s not found", reservationId)
+		}
+		return nil, fmt.Errorf("error retrieving restaurant reservation details: %v", err)
+	}
+
+	if tableID.Valid {
+		restaurantInfo.TableID = tableID.String
+	}
+
+	details.ReservationType = "restaurant"
+	details.RestaurantInfo = &restaurantInfo
+
+	return &details, nil
 }
 
 func (s *store) getActivityReservationDetails(reservationId string) (*types.UniversalReservationDetails, error) {
-    query := `
+	query := `
         SELECT 
             ca.idClientActivity,
             ca.idClient,
@@ -172,57 +172,56 @@ func (s *store) getActivityReservationDetails(reservationId string) (*types.Univ
         LEFT JOIN profile adminProfile ON aa.idProfile = adminProfile.idProfile
         WHERE ca.idClientActivity = ?
     `
-    
-    row := s.db.QueryRow(query, reservationId)
-    
-    var details types.UniversalReservationDetails
-    var activityInfo types.ActivityReservationInfo
-    
-    err := row.Scan(
-        &details.ReservationID,
-        &details.ClientID,
-        &details.Status,
-        &details.ReservationTime,
-        
-        // Client info
-        &details.ClientFirstName,
-        &details.ClientLastName,
-        &details.ClientEmail,
-        &details.ClientPhone,
-        &details.ClientUsername,
-        
-        // Activity info
-        &activityInfo.ActivityID,
-        &activityInfo.ActivityName,
-        &activityInfo.ActivityDescription,
-        &activityInfo.ActivityImage,
-        &activityInfo.Capacity,
-        &activityInfo.Longitude,
-        &activityInfo.Latitude,
-        
-        // Activity type
-        &activityInfo.ActivityType,
-        
-        // Admin info
-        &activityInfo.AdminFirstName,
-        &activityInfo.AdminLastName,
-        &activityInfo.AdminEmail,
-        &activityInfo.AdminPhone,
-    )
-    
-    if err != nil {
-        if err == sql.ErrNoRows {
-            return nil, fmt.Errorf("activity reservation with ID %s not found", reservationId)
-        }
-        return nil, fmt.Errorf("error retrieving activity reservation details: %v", err)
-    }
-    
-    details.ReservationType = "activity"
-    details.ActivityInfo = &activityInfo
-    // Set created time to reservation time for activities (since they don't have separate created time)
-    details.CreatedAt = details.ReservationTime
-    
-    return &details, nil
+
+	row := s.db.QueryRow(query, reservationId)
+
+	var details types.UniversalReservationDetails
+	var activityInfo types.ActivityReservationInfo
+
+	err := row.Scan(
+		&details.ReservationID,
+		&details.ClientID,
+		&details.Status,
+		&details.ReservationTime,
+
+		// Client info
+		&details.ClientFirstName,
+		&details.ClientLastName,
+		&details.ClientEmail,
+		&details.ClientPhone,
+		&details.ClientUsername,
+
+		// Activity info
+		&activityInfo.ActivityID,
+		&activityInfo.ActivityName,
+		&activityInfo.ActivityDescription,
+		&activityInfo.ActivityImage,
+		&activityInfo.Capacity,
+		&activityInfo.Longitude,
+		&activityInfo.Latitude,
+
+		// Activity type
+		&activityInfo.ActivityType,
+
+		// Admin info
+		&activityInfo.AdminFirstName,
+		&activityInfo.AdminLastName,
+		&activityInfo.AdminEmail,
+		&activityInfo.AdminPhone,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("activity reservation with ID %s not found", reservationId)
+		}
+		return nil, fmt.Errorf("error retrieving activity reservation details: %v", err)
+	}
+
+	details.ReservationType = "activity"
+	details.ActivityInfo = &activityInfo
+	// Set created time to reservation time for activities (since they don't have separate created time)
+	details.CreatedAt = details.ReservationTime
+
+	return &details, nil
 }
 
 func (s *store) GetReservationDetails(idReservation string) (*types.ReservationIdDetails, error) {
@@ -962,9 +961,54 @@ func (s *store) GetTablesByRestaurant(restaurantId string) ([]types.Table, error
 }
 
 func (s *store) UpdateReservationStatus(idReservation, status string) error {
-	query := `UPDATE reservation SET status = ? WHERE idReservation = ?`
-	_, err := s.db.Exec(query, status, idReservation)
+	// First, get current reservation status and time
+	var currentStatus string
+	var timeFrom time.Time
+	query := `SELECT status, timeFrom FROM reservation WHERE idReservation = ?`
+	err := s.db.QueryRow(query, idReservation).Scan(&currentStatus, &timeFrom)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("reservation not found")
+		}
+		return fmt.Errorf("error fetching reservation: %v", err)
+	}
+
+	// Validate status transition
+	if !isValidReservationStatusTransition(currentStatus, status) {
+		return fmt.Errorf("invalid status transition from %s to %s", currentStatus, status)
+	}
+	if status == "completed" {
+		now := time.Now()
+		timeDiff := timeFrom.Sub(now)
+		absTimeDiff := timeDiff
+		if absTimeDiff < 0 {
+			absTimeDiff = -absTimeDiff
+		}
+
+		twoHours := 2 * time.Hour
+		if absTimeDiff > twoHours {
+			return fmt.Errorf("status can only be changed within 2 hours before or after the reservation time")
+		}
+
+	}
+
+	// If validation passes, update the status
+	updateQuery := `UPDATE reservation SET status = ? WHERE idReservation = ?`
+	_, err = s.db.Exec(updateQuery, status, idReservation)
 	return err
+}
+
+func isValidReservationStatusTransition(currentStatus, newStatus string) bool {
+	switch currentStatus {
+	case "pending":
+		return newStatus == "confirmed" || newStatus == "cancelled"
+	case "confirmed":
+		return false // confirmed cannot change to any other status
+	case "cancelled":
+		return false // cancelled cannot change to any other status
+	default:
+		return false
+	}
 }
 
 func (s *store) GetRestaurantMenuStats(restaurantId string) (*types.RestaurantMenuStats, error) {

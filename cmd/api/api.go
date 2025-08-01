@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/wael-boudissaa/zencitiBackend/services/activite"
 	"github.com/wael-boudissaa/zencitiBackend/services/restaurant"
+	"github.com/wael-boudissaa/zencitiBackend/services/sensors"
 	"github.com/wael-boudissaa/zencitiBackend/services/user"
 	"github.com/wael-boudissaa/zencitiBackend/utils"
 )
@@ -41,6 +42,10 @@ func (s *APISERVER) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	restaurantStore := restaurant.NewStore(s.db)
 	restaurantHandler := restaurant.NewHandler(restaurantStore)
 	restaurantHandler.RegisterRouter(subrouter)
+
+	sensorsStore := sensors.NewStore(s.db)
+	sensorsHandler := sensors.NewHandler(sensorsStore)
+	sensorsHandler.RegisterRoutes(subrouter)
 
 	// !NOTE : SUBROUTER FOR THE COMMANDES
 

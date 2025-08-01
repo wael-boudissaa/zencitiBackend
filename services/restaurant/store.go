@@ -977,7 +977,7 @@ func (s *store) UpdateReservationStatus(idReservation, status string) error {
 	if !isValidReservationStatusTransition(currentStatus, status) {
 		return fmt.Errorf("invalid status transition from %s to %s", currentStatus, status)
 	}
-	if status == "completed" {
+	if status == "confirmed" {
 		now := time.Now()
 		timeDiff := timeFrom.Sub(now)
 		absTimeDiff := timeDiff

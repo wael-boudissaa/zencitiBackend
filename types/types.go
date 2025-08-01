@@ -784,6 +784,8 @@ type User struct {
 	Refreshtoken string    `json:"refreshToken"`
 	ClientId     string    `json:"idClient"`
 	Username     string    `json:"username"`
+	HasSensors   bool      `json:"hasSensors"`
+	SensorCount  int       `json:"sensorCount"`
 }
 
 //
@@ -875,4 +877,51 @@ type AvailabilityCheckResponse struct {
 	EmailExists    bool `json:"emailExists"`
 	UsernameExists bool `json:"usernameExists"`
 	Available      bool `json:"available"`
+}
+
+// Sensor-related types for water consumption tracking
+type SensorRegistration struct {
+	SensorId string `json:"sensorId"`
+	ClientId string `json:"clientId"`
+}
+
+type DailyUsageData struct {
+	SensorId     string  `json:"sensorId"`
+	UsageDate    string  `json:"usageDate"`
+	VolumeLiters float64 `json:"volumeLiters"`
+}
+
+type BatchUsageData struct {
+	SensorId   string           `json:"sensorId"`
+	UsageData  []DailyUsageData `json:"usageData"`
+}
+
+type SensorInfo struct {
+	IdSensor     string    `json:"idSensor"`
+	IdClient     string    `json:"idClient"`
+	Status       string    `json:"status"`
+}
+
+type SensorUsageResponse struct {
+	Sensors []SensorUsageDetails `json:"sensors"`
+}
+
+type SensorUsageDetails struct {
+	IdSensor      string              `json:"idSensor"`
+	Status        string              `json:"status"`
+	DailyUsage    []DailyUsageRecord  `json:"dailyUsage"`
+	WeeklyTotal   float64             `json:"weeklyTotal"`
+	MonthlyTotal  float64             `json:"monthlyTotal"`
+	AverageDaily  float64             `json:"averageDaily"`
+}
+
+type DailyUsageRecord struct {
+	Date         string  `json:"date"`
+	VolumeLiters float64 `json:"volumeLiters"`
+}
+
+type UserSensorsResponse struct {
+	Sensors      []SensorInfo `json:"sensors"`
+	TotalSensors int          `json:"totalSensors"`
+	HasSensors   bool         `json:"hasSensors"`
 }

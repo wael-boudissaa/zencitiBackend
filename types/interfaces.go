@@ -189,3 +189,20 @@ type RestaurantStore interface {
 	// GetWorkerFeedBack() (*[]RestaurantWorkerFeedBack, error)
 	// GetWorkerRestaurantFeedBackBy(id string) (*RestaurantWorkerFeedBack, error)
 }
+
+type SensorStore interface {
+	// Sensor registration methods
+	RegisterSensor(sensorId, clientId string) error
+	GetSensorsByClient(clientId string) ([]SensorInfo, error)
+	CheckSensorOwnership(sensorId string) (string, error) // returns clientId if exists
+	
+	// Daily usage methods
+	SaveDailyUsage(usage DailyUsageData) error
+	SaveBatchUsage(batchData BatchUsageData) error
+	GetSensorUsage(clientId, period string) (*SensorUsageResponse, error)
+	GetSensorUsageByDate(sensorId, startDate, endDate string) ([]DailyUsageRecord, error)
+	
+	// Sensor management
+	UpdateSensorStatus(sensorId, status string) error
+	GetSensorInfo(sensorId string) (*SensorInfo, error)
+}

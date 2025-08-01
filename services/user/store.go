@@ -308,6 +308,18 @@ func (s *Store) GetUserByEmail(email string) (*types.User, error) {
         return nil, err // Other database error
     }
 
+    // Check if user has sensors
+    var sensorCount int
+    sensorQuery := `SELECT COUNT(*) FROM waterSensor WHERE idClient = ? AND status = 'active'`
+    err = s.db.QueryRow(sensorQuery, u.ClientId).Scan(&sensorCount)
+    if err != nil {
+        log.Printf("Error checking sensor count for client %s: %v", u.ClientId, err)
+        sensorCount = 0
+    }
+    
+    u.HasSensors = sensorCount > 0
+    u.SensorCount = sensorCount
+
     return u, nil
 }
 
@@ -1082,6 +1094,10 @@ func (s *Store) GetGeneralAdminByEmail(email string) (*types.User, error) {
         }
         return nil, fmt.Errorf("error getting admin by email: %v", err)
     }
+    
+    // Admins don't have sensors, set default values
+    u.HasSensors = false
+    u.SensorCount = 0
     
     return &u, nil
 }

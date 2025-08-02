@@ -102,6 +102,11 @@ type ActiviteStore interface {
 	UpdateActivityStatus(idClientActivity string, status string) error
 	PostRatingActivity(rating PostRatingActivity) error
 	GetAllCampusFacilities() (*CampusFacilitiesResponse, error)
+	
+	// New methods for bookings and analytics
+	GetActivityBookings(idActivity string) ([]ActivityBookingDetail, error)
+	GetActivityDetailedAnalytics(idActivity string) (*ActivityDetailedAnalytics, error)
+	GetAdminActivityBookings(idAdminActivity string) ([]ActivityBookingDetail, error)
 }
 
 type RestaurantStore interface {
@@ -188,6 +193,11 @@ type RestaurantStore interface {
 	// GetFoodById(id string) (*Food, error)
 	// GetWorkerFeedBack() (*[]RestaurantWorkerFeedBack, error)
 	// GetWorkerRestaurantFeedBackBy(id string) (*RestaurantWorkerFeedBack, error)
+	
+	// New admin-level statistics and enhanced APIs
+	GetAdminRestaurantStats() (*AdminRestaurantStats, error)
+	GetAllRestaurantReviews(idRestaurant string) ([]*Rating, error)
+	GetRestaurantTodaySummary(idRestaurant string) (*RestaurantTodaySummary, error)
 }
 
 type SensorStore interface {

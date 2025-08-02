@@ -1312,3 +1312,336 @@ func (s *Store) getAllRestaurantsWithDetails() ([]types.CampusFacilityItem, erro
 
 	return restaurants, nil
 }
+
+// GetActivityBookings returns all bookings for a specific activity with full client details
+func (s *Store) GetActivityBookings(idActivity string) ([]types.ActivityBookingDetail, error) {
+	query := `
+		SELECT 
+			ca.idClientActivity,
+			CONCAT(p.firstName, ' ', p.lastName) as clientName,
+			p.email as clientEmail,
+			p.phoneNumber as clientPhone,
+			c.username as clientUsername,
+			ca.timeActivity as bookingTime,
+			ca.status,
+			ca.timeActivity as createdAt
+		FROM clientActivity ca
+		JOIN client c ON ca.idClient = c.idClient  
+		JOIN profile p ON c.idProfile = p.idProfile
+		WHERE ca.idActivity = ?
+		ORDER BY ca.timeActivity DESC
+	`
+	
+	rows, err := s.db.Query(query, idActivity)
+	if err != nil {
+		return nil, fmt.Errorf("error querying activity bookings: %v", err)
+	}
+	defer rows.Close()
+
+	var bookings []types.ActivityBookingDetail
+	for rows.Next() {
+		var booking types.ActivityBookingDetail
+		var clientPhone sql.NullString
+		
+		err := rows.Scan(
+			&booking.IdClientActivity,
+			&booking.ClientName,
+			&booking.ClientEmail,
+			&clientPhone,
+			&booking.ClientUsername,
+			&booking.BookingTime,
+			&booking.Status,
+			&booking.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning booking row: %v", err)
+		}
+		
+		if clientPhone.Valid {
+			booking.ClientPhone = clientPhone.String
+		}
+		
+		bookings = append(bookings, booking)
+	}
+
+	return bookings, nil
+}
+
+// GetAdminActivityBookings returns all bookings for activities managed by an admin
+func (s *Store) GetAdminActivityBookings(idAdminActivity string) ([]types.ActivityBookingDetail, error) {
+	query := `
+		SELECT 
+			ca.idClientActivity,
+			CONCAT(p.firstName, ' ', p.lastName) as clientName,
+			p.email as clientEmail,
+			p.phoneNumber as clientPhone,
+			c.username as clientUsername,
+			ca.timeActivity as bookingTime,
+			ca.status,
+			ca.timeActivity as createdAt,
+			a.nameActivity
+		FROM clientActivity ca
+		JOIN client c ON ca.idClient = c.idClient  
+		JOIN profile p ON c.idProfile = p.idProfile
+		JOIN activity a ON ca.idActivity = a.idActivity
+		WHERE a.idAdminActivity = ?
+		ORDER BY ca.timeActivity DESC
+	`
+	
+	rows, err := s.db.Query(query, idAdminActivity)
+	if err != nil {
+		return nil, fmt.Errorf("error querying admin activity bookings: %v", err)
+	}
+	defer rows.Close()
+
+	var bookings []types.ActivityBookingDetail
+	for rows.Next() {
+		var booking types.ActivityBookingDetail
+		var clientPhone sql.NullString
+		var activityName string
+		
+		err := rows.Scan(
+			&booking.IdClientActivity,
+			&booking.ClientName,
+			&booking.ClientEmail,
+			&clientPhone,
+			&booking.ClientUsername,
+			&booking.BookingTime,
+			&booking.Status,
+			&booking.CreatedAt,
+			&activityName,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning admin booking row: %v", err)
+		}
+		
+		if clientPhone.Valid {
+			booking.ClientPhone = clientPhone.String
+		}
+		
+		// Add activity name to client name for context
+		booking.ClientName = fmt.Sprintf("%s (%s)", booking.ClientName, activityName)
+		
+		bookings = append(bookings, booking)
+	}
+
+	return bookings, nil
+}
+
+// GetActivityDetailedAnalytics returns comprehensive analytics for a specific activity
+func (s *Store) GetActivityDetailedAnalytics(idActivity string) (*types.ActivityDetailedAnalytics, error) {
+	analytics := &types.ActivityDetailedAnalytics{}
+
+	// Get basic stats
+	totalBookingsQuery := `SELECT COUNT(*) FROM clientActivity WHERE idActivity = ?`
+	err := s.db.QueryRow(totalBookingsQuery, idActivity).Scan(&analytics.TotalBookings)
+	if err != nil {
+		return nil, fmt.Errorf("error getting total bookings: %v", err)
+	}
+
+	// Get bookings by status
+	completedQuery := `SELECT COUNT(*) FROM clientActivity WHERE idActivity = ? AND status = 'completed'`
+	err = s.db.QueryRow(completedQuery, idActivity).Scan(&analytics.CompletedBookings)
+	if err != nil {
+		return nil, fmt.Errorf("error getting completed bookings: %v", err)
+	}
+
+	pendingQuery := `SELECT COUNT(*) FROM clientActivity WHERE idActivity = ? AND status = 'pending'`
+	err = s.db.QueryRow(pendingQuery, idActivity).Scan(&analytics.PendingBookings)
+	if err != nil {
+		return nil, fmt.Errorf("error getting pending bookings: %v", err)
+	}
+
+	cancelledQuery := `SELECT COUNT(*) FROM clientActivity WHERE idActivity = ? AND status = 'cancelled'`
+	err = s.db.QueryRow(cancelledQuery, idActivity).Scan(&analytics.CancelledBookings)
+	if err != nil {
+		return nil, fmt.Errorf("error getting cancelled bookings: %v", err)
+	}
+
+	// Calculate completion rate
+	if analytics.TotalBookings > 0 {
+		analytics.CompletionRate = (float64(analytics.CompletedBookings) / float64(analytics.TotalBookings)) * 100
+	}
+
+	// Get ratings stats
+	reviewQuery := `SELECT COUNT(*), IFNULL(AVG(rating), 0) FROM rating WHERE idActivity = ? AND ratingType = 'activity'`
+	err = s.db.QueryRow(reviewQuery, idActivity).Scan(&analytics.TotalReviews, &analytics.AverageRating)
+	if err != nil {
+		return nil, fmt.Errorf("error getting reviews stats: %v", err)
+	}
+
+	// Bookings by status map
+	analytics.BookingsByStatus = map[string]int{
+		"completed": analytics.CompletedBookings,
+		"pending":   analytics.PendingBookings,
+		"cancelled": analytics.CancelledBookings,
+	}
+
+	// Get peak hours analysis
+	peakHoursQuery := `
+		SELECT HOUR(timeActivity) as hour, COUNT(*) as bookings
+		FROM clientActivity 
+		WHERE idActivity = ?
+		GROUP BY HOUR(timeActivity)
+		ORDER BY hour ASC
+	`
+	peakRows, err := s.db.Query(peakHoursQuery, idActivity)
+	if err == nil {
+		defer peakRows.Close()
+		for peakRows.Next() {
+			var hourStat types.HourlyBookingStats
+			err := peakRows.Scan(&hourStat.Hour, &hourStat.Bookings)
+			if err == nil {
+				analytics.PeakHours = append(analytics.PeakHours, hourStat)
+			}
+		}
+	}
+
+	// Get daily trends (last 30 days)
+	dailyTrendsQuery := `
+		SELECT DATE(timeActivity) as date, COUNT(*) as bookings
+		FROM clientActivity 
+		WHERE idActivity = ? 
+		AND timeActivity >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+		GROUP BY DATE(timeActivity)
+		ORDER BY date ASC
+	`
+	dailyRows, err := s.db.Query(dailyTrendsQuery, idActivity)
+	if err == nil {
+		defer dailyRows.Close()
+		for dailyRows.Next() {
+			var trend types.ActivityDailyStats
+			err := dailyRows.Scan(&trend.Date, &trend.Bookings)
+			if err == nil {
+				analytics.DailyTrends = append(analytics.DailyTrends, trend)
+			}
+		}
+	}
+
+	// Get weekly trends (last 12 weeks)
+	weeklyTrendsQuery := `
+		SELECT 
+			YEAR(timeActivity) as year,
+			WEEK(timeActivity, 1) as week_num,
+			COUNT(*) as bookings
+		FROM clientActivity 
+		WHERE idActivity = ?
+		AND timeActivity >= DATE_SUB(CURDATE(), INTERVAL 12 WEEK)
+		GROUP BY YEAR(timeActivity), WEEK(timeActivity, 1)
+		ORDER BY year, week_num ASC
+	`
+	weeklyRows, err := s.db.Query(weeklyTrendsQuery, idActivity)
+	if err == nil {
+		defer weeklyRows.Close()
+		for weeklyRows.Next() {
+			var year, weekNum, bookings int
+			err := weeklyRows.Scan(&year, &weekNum, &bookings)
+			if err == nil {
+				trend := types.ActivityWeeklyStats{
+					Week:     fmt.Sprintf("%d-W%02d", year, weekNum),
+					Bookings: bookings,
+				}
+				analytics.WeeklyTrends = append(analytics.WeeklyTrends, trend)
+			}
+		}
+	}
+
+	// Get monthly trends (last 12 months)
+	monthlyTrendsQuery := `
+		SELECT 
+			MONTHNAME(timeActivity) as month, 
+			YEAR(timeActivity) as year, 
+			COUNT(*) as bookings
+		FROM clientActivity 
+		WHERE idActivity = ?
+		AND timeActivity >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+		GROUP BY YEAR(timeActivity), MONTH(timeActivity), MONTHNAME(timeActivity)
+		ORDER BY YEAR(timeActivity), MONTH(timeActivity) ASC
+	`
+	monthlyRows, err := s.db.Query(monthlyTrendsQuery, idActivity)
+	if err == nil {
+		defer monthlyRows.Close()
+		for monthlyRows.Next() {
+			var trend types.ActivityMonthlyStats
+			err := monthlyRows.Scan(&trend.Month, &trend.Year, &trend.Bookings)
+			if err == nil {
+				analytics.MonthlyTrends = append(analytics.MonthlyTrends, trend)
+			}
+		}
+	}
+
+	// Calculate client return rate
+	uniqueClientsQuery := `SELECT COUNT(DISTINCT idClient) FROM clientActivity WHERE idActivity = ?`
+	var uniqueClients int
+	err = s.db.QueryRow(uniqueClientsQuery, idActivity).Scan(&uniqueClients)
+	if err == nil && analytics.TotalBookings > 0 && uniqueClients > 0 {
+		analytics.ClientReturnRate = (float64(analytics.TotalBookings) / float64(uniqueClients)) - 1.0
+		if analytics.ClientReturnRate < 0 {
+			analytics.ClientReturnRate = 0
+		}
+	}
+
+	// Calculate capacity utilization (need activity capacity)
+	var capacity int
+	capacityQuery := `SELECT capacity FROM activity WHERE idActivity = ?`
+	err = s.db.QueryRow(capacityQuery, idActivity).Scan(&capacity)
+	if err == nil && capacity > 0 {
+		// This is a simplified calculation - in reality you'd need to consider time slots
+		analytics.CapacityUtilization = (float64(analytics.CompletedBookings) / float64(capacity)) * 100
+		if analytics.CapacityUtilization > 100 {
+			analytics.CapacityUtilization = 100
+		}
+	}
+
+	// Get recent bookings (last 10)
+	recentBookings, err := s.GetActivityBookings(idActivity)
+	if err == nil && len(recentBookings) > 10 {
+		analytics.RecentBookings = recentBookings[:10]
+	} else if err == nil {
+		analytics.RecentBookings = recentBookings
+	}
+
+	// Get top rated reviews (4 and 5 star reviews, limit 5)
+	topReviewsQuery := `
+		SELECT CONCAT(p.firstName, ' ', p.lastName) as reviewerName, r.rating, r.comment, r.createdAt
+		FROM rating r
+		JOIN client c ON r.idClient = c.idClient
+		JOIN profile p ON c.idProfile = p.idProfile
+		WHERE r.idActivity = ? AND r.rating >= 4 AND r.ratingType = 'activity'
+		ORDER BY r.rating DESC, r.createdAt DESC
+		LIMIT 5
+	`
+	reviewRows, err := s.db.Query(topReviewsQuery, idActivity)
+	if err == nil {
+		defer reviewRows.Close()
+		for reviewRows.Next() {
+			var review types.ActivityReviewDetail
+			err := reviewRows.Scan(&review.ReviewerName, &review.Rating, &review.Comment, &review.CreatedAt)
+			if err == nil {
+				analytics.TopRatedReviews = append(analytics.TopRatedReviews, review)
+			}
+		}
+	}
+
+	// Initialize empty slices if no data found
+	if analytics.PeakHours == nil {
+		analytics.PeakHours = []types.HourlyBookingStats{}
+	}
+	if analytics.DailyTrends == nil {
+		analytics.DailyTrends = []types.ActivityDailyStats{}
+	}
+	if analytics.WeeklyTrends == nil {
+		analytics.WeeklyTrends = []types.ActivityWeeklyStats{}
+	}
+	if analytics.MonthlyTrends == nil {
+		analytics.MonthlyTrends = []types.ActivityMonthlyStats{}
+	}
+	if analytics.RecentBookings == nil {
+		analytics.RecentBookings = []types.ActivityBookingDetail{}
+	}
+	if analytics.TopRatedReviews == nil {
+		analytics.TopRatedReviews = []types.ActivityReviewDetail{}
+	}
+
+	return analytics, nil
+}

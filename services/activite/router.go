@@ -42,6 +42,11 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	r.HandleFunc("/booking/{idClientActivity}/status", h.UpdateActivityBookingStatus).Methods("PUT")
 	r.HandleFunc("/activity/rating", h.PostReviewActivity).Methods("POST")
 	r.HandleFunc("/campus/facilities", h.GetAllCampusFacilities).Methods("GET")
+	
+	// New endpoints for activity bookings and analytics
+	r.HandleFunc("/activity/{idActivity}/bookings", h.GetActivityBookings).Methods("GET")
+	r.HandleFunc("/activity/{idActivity}/analytics", h.GetActivityDetailedAnalytics).Methods("GET")
+	r.HandleFunc("/admin/{idAdminActivity}/bookings", h.GetAdminActivityBookings).Methods("GET")
 }
 
 func (h *Handler) GetAllLocationsWithDistances(w http.ResponseWriter, r *http.Request) {
@@ -429,4 +434,58 @@ func (h *Handler) GetAllCampusFacilities(w http.ResponseWriter, r *http.Request)
 	}
 
 	utils.WriteJson(w, http.StatusOK, facilities)
+}
+
+// GetActivityBookings returns all bookings for a specific activity
+func (h *Handler) GetActivityBookings(w http.ResponseWriter, r *http.Request) {
+	idActivity := mux.Vars(r)["idActivity"]
+	if idActivity == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idActivity is required"))
+		return
+	}
+
+	bookings, err := h.store.GetActivityBookings(idActivity)
+	if err != nil {
+		log.Printf("Error fetching activity bookings: %v", err)
+		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("failed to fetch activity bookings"))
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, bookings)
+}
+
+// GetActivityDetailedAnalytics returns comprehensive analytics for a specific activity
+func (h *Handler) GetActivityDetailedAnalytics(w http.ResponseWriter, r *http.Request) {
+	idActivity := mux.Vars(r)["idActivity"]
+	if idActivity == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idActivity is required"))
+		return
+	}
+
+	analytics, err := h.store.GetActivityDetailedAnalytics(idActivity)
+	if err != nil {
+		log.Printf("Error fetching activity analytics: %v", err)
+		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("failed to fetch activity analytics"))
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, analytics)
+}
+
+// GetAdminActivityBookings returns all bookings for activities managed by an admin
+func (h *Handler) GetAdminActivityBookings(w http.ResponseWriter, r *http.Request) {
+	idAdminActivity := mux.Vars(r)["idAdminActivity"]
+	if idAdminActivity == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("idAdminActivity is required"))
+		return
+	}
+
+	bookings, err := h.store.GetAdminActivityBookings(idAdminActivity)
+	if err != nil {
+		log.Printf("Error fetching admin activity bookings: %v", err)
+		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("failed to fetch admin activity bookings"))
+		return
+	}
+
+	utils.WriteJson(w, http.StatusOK, bookings)
 }

@@ -1668,7 +1668,22 @@ WHERE tr.idRestaurant = ?;
 }
 
 func (s *store) GetRestaurant() (*[]types.Restaurant, error) {
-	query := `SELECT * FROM restaurant`
+	query := `
+		SELECT 
+			r.idRestaurant,
+			r.idAdminRestaurant,
+			r.name,
+			r.image,
+			r.longitude,
+			r.latitude,
+			r.description,
+			r.capacity,
+			r.location,
+			COALESCE(AVG(rating.rating), 0) as averageRating
+		FROM restaurant r
+		LEFT JOIN rating ON r.idRestaurant = rating.idRestaurant
+		GROUP BY r.idRestaurant, r.idAdminRestaurant, r.name, r.image, r.longitude, r.latitude, r.description, r.capacity, r.location
+	`
 	rows, err := s.db.Query(query)
 	if err != nil {
 		return nil, err
@@ -1678,6 +1693,7 @@ func (s *store) GetRestaurant() (*[]types.Restaurant, error) {
 
 	for rows.Next() {
 		var rest types.Restaurant
+		var averageRating sql.NullFloat64
 
 		err = rows.Scan(
 			&rest.IdRestaurant,
@@ -1689,10 +1705,22 @@ func (s *store) GetRestaurant() (*[]types.Restaurant, error) {
 			&rest.Description,
 			&rest.Capacity,
 			&rest.Location,
+			&averageRating,
 		)
 		if err != nil {
 			return nil, err
 		}
+
+		// Set average rating if available
+		if averageRating.Valid {
+			rating := averageRating.Float64
+			rest.AverageRating = &rating
+		}
+
+		// Determine if restaurant is active (has admin assigned)
+		isActive := rest.IdAdminRestaurant != nil
+		rest.IsActive = &isActive
+
 		restaurant = append(restaurant, rest)
 	}
 	if err := rows.Err(); err != nil {
@@ -2711,4 +2739,141 @@ func (s *store) GetReservationStatsAndList(idRestaurant string) (*types.Reservat
 		TodayReservations:    todayReservations,
 		UpcomingReservations: upcomingReservationsList,
 	}, nil
+}
+
+// GetAdminRestaurantStats retrieves aggregated statistics for all restaurants
+func (s *store) GetAdminRestaurantStats() (*types.AdminRestaurantStats, error) {
+	var stats types.AdminRestaurantStats
+
+	// Get total restaurants count
+	err := s.db.QueryRow("SELECT COUNT(*) FROM restaurant").Scan(&stats.TotalRestaurants)
+	if err != nil {
+		return nil, fmt.Errorf("error getting total restaurants count: %v", err)
+	}
+
+	// Get active restaurants count (restaurants with admin assigned)
+	err = s.db.QueryRow("SELECT COUNT(*) FROM restaurant WHERE idAdminRestaurant IS NOT NULL").Scan(&stats.ActiveRestaurants)
+	if err != nil {
+		return nil, fmt.Errorf("error getting active restaurants count: %v", err)
+	}
+
+	// Get average rating across all restaurants
+	err = s.db.QueryRow(`
+		SELECT COALESCE(AVG(rating), 0) 
+		FROM rating 
+		WHERE idRestaurant IS NOT NULL
+	`).Scan(&stats.AverageRating)
+	if err != nil {
+		return nil, fmt.Errorf("error getting average rating: %v", err)
+	}
+
+	// Get total bookings last month across all restaurants
+	err = s.db.QueryRow(`
+		SELECT COUNT(*) 
+		FROM reservation 
+		WHERE createdAt >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH) 
+		AND createdAt < CURDATE()
+	`).Scan(&stats.TotalBookingsLastMonth)
+	if err != nil {
+		return nil, fmt.Errorf("error getting total bookings last month: %v", err)
+	}
+
+	return &stats, nil
+}
+
+// GetAllRestaurantReviews retrieves all reviews for a specific restaurant
+func (s *store) GetAllRestaurantReviews(idRestaurant string) ([]*types.Rating, error) {
+	query := `
+		SELECT 
+			r.idRating,
+			r.rating,
+			r.comment,
+			r.createdAt,
+			p.firstName,
+			p.lastName
+		FROM rating r
+		JOIN profile p ON r.idClient = p.idProfile
+		WHERE r.idRestaurant = ?
+		ORDER BY r.createdAt DESC
+	`
+
+	rows, err := s.db.Query(query, idRestaurant)
+	if err != nil {
+		return nil, fmt.Errorf("error querying all restaurant reviews: %v", err)
+	}
+	defer rows.Close()
+
+	var reviews []*types.Rating
+	for rows.Next() {
+		var review types.Rating
+		
+		err := rows.Scan(
+			&review.IdRating,
+			&review.RatingValue,
+			&review.Comment,
+			&review.CreatedAt,
+			&review.FirstName,
+			&review.LastName,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning review row: %v", err)
+		}
+
+		reviews = append(reviews, &review)
+	}
+
+	return reviews, nil
+}
+
+// GetRestaurantTodaySummary retrieves today's summary for a specific restaurant
+func (s *store) GetRestaurantTodaySummary(idRestaurant string) (*types.RestaurantTodaySummary, error) {
+	var summary types.RestaurantTodaySummary
+
+	// Get total reservations today
+	err := s.db.QueryRow(`
+		SELECT COUNT(*) 
+		FROM reservation 
+		WHERE idRestaurant = ? 
+		AND DATE(timeFrom) = CURDATE()
+	`, idRestaurant).Scan(&summary.TotalReservationsToday)
+	if err != nil {
+		return nil, fmt.Errorf("error getting total reservations today: %v", err)
+	}
+
+	// Get confirmed reservations today
+	err = s.db.QueryRow(`
+		SELECT COUNT(*) 
+		FROM reservation 
+		WHERE idRestaurant = ? 
+		AND DATE(timeFrom) = CURDATE() 
+		AND status = 'confirmed'
+	`, idRestaurant).Scan(&summary.ConfirmedReservations)
+	if err != nil {
+		return nil, fmt.Errorf("error getting confirmed reservations: %v", err)
+	}
+
+	// Get pending reservations today
+	err = s.db.QueryRow(`
+		SELECT COUNT(*) 
+		FROM reservation 
+		WHERE idRestaurant = ? 
+		AND DATE(timeFrom) = CURDATE() 
+		AND status = 'pending'
+	`, idRestaurant).Scan(&summary.PendingReservations)
+	if err != nil {
+		return nil, fmt.Errorf("error getting pending reservations: %v", err)
+	}
+
+	// Calculate current occupancy (confirmed reservations / restaurant capacity * 100)
+	var capacity int
+	err = s.db.QueryRow("SELECT capacity FROM restaurant WHERE idRestaurant = ?", idRestaurant).Scan(&capacity)
+	if err != nil {
+		return nil, fmt.Errorf("error getting restaurant capacity: %v", err)
+	}
+
+	if capacity > 0 {
+		summary.CurrentOccupancy = float64(summary.ConfirmedReservations) / float64(capacity) * 100
+	}
+
+	return &summary, nil
 }

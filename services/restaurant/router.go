@@ -91,6 +91,11 @@ func (h *Handler) RegisterRouter(r *mux.Router) {
 	//!NOTE: Tables
 	r.HandleFunc("/restaurant/{idRestaurant}/tables/bulk", h.BulkUpdateRestaurantTables).Methods("PUT")
 
+	//!NOTE: Admin Statistics  
+	r.HandleFunc("/restaurant/admin/stats", h.GetAdminRestaurantStats).Methods("GET")
+	r.HandleFunc("/restaurant/{id}/reviews/all", h.GetAllRestaurantReviews).Methods("GET")
+	r.HandleFunc("/restaurant/{id}/today-summary", h.GetRestaurantTodaySummary).Methods("GET")
+
 	// Add to RegisterRouter function in services/restaurant/router.go
 	r.HandleFunc("/reservation/{reservationId}/universal", h.GetUniversalReservationDetails).Methods("GET")
 }
@@ -1382,4 +1387,51 @@ func (h *Handler) GetFriendsReviewsRestaurant(w http.ResponseWriter, r *http.Req
 	}
 
 	utils.WriteJson(w, http.StatusOK, reviews)
+}
+
+// GetAdminRestaurantStats retrieves aggregated statistics for all restaurants
+func (h *Handler) GetAdminRestaurantStats(w http.ResponseWriter, r *http.Request) {
+	stats, err := h.store.GetAdminRestaurantStats()
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, stats)
+}
+
+// GetAllRestaurantReviews retrieves all reviews for a specific restaurant
+func (h *Handler) GetAllRestaurantReviews(w http.ResponseWriter, r *http.Request) {
+	restaurantId := mux.Vars(r)["id"]
+	if restaurantId == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("restaurant id is required"))
+		return
+	}
+
+	reviews, err := h.store.GetAllRestaurantReviews(restaurantId)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	
+	if reviews == nil {
+		utils.WriteJson(w, http.StatusOK, []types.Rating{})
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, reviews)
+}
+
+// GetRestaurantTodaySummary retrieves today's summary for a specific restaurant
+func (h *Handler) GetRestaurantTodaySummary(w http.ResponseWriter, r *http.Request) {
+	restaurantId := mux.Vars(r)["id"]
+	if restaurantId == "" {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("restaurant id is required"))
+		return
+	}
+
+	summary, err := h.store.GetRestaurantTodaySummary(restaurantId)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJson(w, http.StatusOK, summary)
 }

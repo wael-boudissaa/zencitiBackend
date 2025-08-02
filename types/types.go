@@ -481,6 +481,8 @@ type Restaurant struct {
 	Image             *string  `json:"image" db:"image"`
 	Location          *string  `json:"location" db:"location"`
 	Capacity          *int     `json:"capacity" db:"capacity"`
+	AverageRating     *float64 `json:"averageRating,omitempty"`
+	IsActive          *bool    `json:"isActive,omitempty"`
 }
 
 type RestaurantTable struct {
@@ -924,4 +926,68 @@ type UserSensorsResponse struct {
 	Sensors      []SensorInfo `json:"sensors"`
 	TotalSensors int          `json:"totalSensors"`
 	HasSensors   bool         `json:"hasSensors"`
+}
+
+// Activity booking detail with full client information
+type ActivityBookingDetail struct {
+	IdClientActivity string    `json:"idClientActivity"`
+	ClientName       string    `json:"clientName"`
+	ClientEmail      string    `json:"clientEmail"`
+	ClientPhone      string    `json:"clientPhone"`
+	ClientUsername   string    `json:"clientUsername"`
+	BookingTime      time.Time `json:"bookingTime"`
+	Status           string    `json:"status"`
+	CreatedAt        time.Time `json:"createdAt"`
+}
+
+// Enhanced analytics with chart-ready data
+type ActivityDetailedAnalytics struct {
+	// Basic stats (reuse existing)
+	TotalBookings      int                    `json:"totalBookings"`
+	CompletedBookings  int                    `json:"completedBookings"`
+	PendingBookings    int                    `json:"pendingBookings"`
+	CancelledBookings  int                    `json:"cancelledBookings"`
+	CompletionRate     float64               `json:"completionRate"`
+	TotalReviews       int                    `json:"totalReviews"`
+	AverageRating      float64               `json:"averageRating"`
+	
+	// Enhanced analytics
+	BookingsByStatus   map[string]int         `json:"bookingsByStatus"`
+	PeakHours          []HourlyBookingStats   `json:"peakHours"`
+	DailyTrends        []ActivityDailyStats   `json:"dailyTrends"`
+	WeeklyTrends       []ActivityWeeklyStats  `json:"weeklyTrends"`
+	MonthlyTrends      []ActivityMonthlyStats `json:"monthlyTrends"`
+	ClientReturnRate   float64               `json:"clientReturnRate"`
+	CapacityUtilization float64              `json:"capacityUtilization"`
+	RecentBookings     []ActivityBookingDetail `json:"recentBookings"`
+	TopRatedReviews    []ActivityReviewDetail  `json:"topRatedReviews"`
+}
+
+// Hourly booking statistics
+type HourlyBookingStats struct {
+	Hour     int `json:"hour"`
+	Bookings int `json:"bookings"`
+}
+
+// Client demographics for analytics
+type ClientDemographicsStats struct {
+	UniqueClients  int `json:"uniqueClients"`
+	ReturningRate  float64 `json:"returningRate"`
+	AverageBookingsPerClient float64 `json:"averageBookingsPerClient"`
+}
+
+// Admin Restaurant Statistics - aggregated data for admin panel
+type AdminRestaurantStats struct {
+	TotalRestaurants    int     `json:"totalRestaurants"`
+	ActiveRestaurants   int     `json:"activeRestaurants"`
+	AverageRating       float64 `json:"averageRating"`
+	TotalBookingsLastMonth int `json:"totalBookingsLastMonth"`
+}
+
+// Restaurant Today Summary - daily metrics for a specific restaurant
+type RestaurantTodaySummary struct {
+	TotalReservationsToday int     `json:"totalReservationsToday"`
+	CurrentOccupancy       float64 `json:"currentOccupancy"`
+	ConfirmedReservations  int     `json:"confirmedReservations"`
+	PendingReservations    int     `json:"pendingReservations"`
 }
